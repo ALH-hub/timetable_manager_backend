@@ -1,10 +1,12 @@
-from . import create_app
+import sys
+import os
 
+from __init__ import create_app
+from config import db
 
 app = create_app()
 
 if __name__ == '__main__':
-    from .config import db
     with app.app_context():
         db.create_all()
     app.run(debug=True)

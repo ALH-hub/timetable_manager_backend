@@ -1,12 +1,12 @@
 from flask import Flask, jsonify
 from flask_migrate import Migrate
-from .config import db
+from config import db
 
 migrate = Migrate()
 
 def create_app():
     app = Flask(__name__)
-    app.config.from_object('.config.Config')
+    app.config.from_object('config.Config')
 
 
     db.init_app(app)
@@ -19,7 +19,7 @@ def create_app():
 
     with app.app_context():
         #db.create_all()
-        from .blueprints import register_blueprints
+        from blueprints import register_blueprints
         register_blueprints(app)
 
     return app
