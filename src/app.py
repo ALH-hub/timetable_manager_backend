@@ -1,6 +1,3 @@
-import sys
-import os
-
 from __init__ import create_app
 from config import db
 

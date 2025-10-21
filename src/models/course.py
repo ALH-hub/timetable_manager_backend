@@ -1,4 +1,4 @@
-from .. import db
+from src.config import db
 
 class Course(db.Model):
     __tablename__ = 'courses'

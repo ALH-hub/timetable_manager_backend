@@ -1,4 +1,4 @@
-from .. import db
+from src.config import db
 from .user import User
 
 class Teacher(User):

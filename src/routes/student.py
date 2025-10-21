@@ -1,14 +1,19 @@
-# # AUTHOR: ALHADJI OUMATE
-# # STUDENT ID: 22U2033
+from flask import Blueprint, request, jsonify
 
-# from flask import Blueprint, request, jsonify
+from models.student import Student
+from config import db
+
 # from ..models import Person, Food
-# from ..config import db
 
-# persons_bp = Blueprint('persons', __name__)
+students_bp = Blueprint('students', __name__)
 
-# @persons_bp.route('/persons', methods=['POST'])
-# def add_person():
+@students_bp.route('/students', methods=['GET'])
+def get_students():
+    students = Student.query.all()
+    return jsonify([{'id': s.id, 'name': s.name, 'age': s.age} for s in students])
+
+# @students_bp.route('/students', methods=['POST'])
+# def add_student():
 #     name = request.json.get('name')
 #     age = request.json.get('age', None)
 #     if not name:

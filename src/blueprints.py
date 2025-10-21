@@ -1,17 +1,8 @@
-# # AUTHOR: ALHADJI OUMATE
-# # STUDENT ID: 22U2033
-
-# from .routes.foods import foods_bp
-# from .routes.persons import persons_bp
-# from .routes.food_recommendation import rec_bp as food_recommendation_bp
-# from .routes.allergy_probability import rec_bp as allergy_probability_bp
-# from .routes.food_consumptions import food_consumptions_bp
-# from .routes.weekly_plan import weekly_plan_bp
-# from .routes.buffet_manage import buffet_bp
+from routes.student import students_bp
 
 def register_blueprints(app):
     """Register Flask blueprints with the app."""
-    pass  # No blueprints registered yet
+    app.register_blueprint(students_bp)
     # Uncomment and add blueprints when routes are ready:
     # app.register_blueprint(foods_bp)
     # app.register_blueprint(persons_bp)
