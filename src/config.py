@@ -1,6 +1,3 @@
-# AUTHOR: ALHADJI OUMATE
-# STUDENT ID: 22U2033
-
 from flask_sqlalchemy import SQLAlchemy
 import os
 

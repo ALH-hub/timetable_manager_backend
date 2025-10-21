@@ -1,6 +1,3 @@
-# AUTHOR: ALHADJI OUMATE
-# STUDENT ID: 22U2033
-
 from flask import Flask, jsonify
 from flask_migrate import Migrate
 from .config import db
@@ -9,16 +6,15 @@ migrate = Migrate()
 
 def create_app():
     app = Flask(__name__)
-    app.config.from_object('mini_food_recommendation_backend.config.Config')
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config.from_object('src.config.Config')
 
 
     db.init_app(app)
     migrate.init_app(app, db)
 
     @app.route('/')
-    def index():
-        return jsonify({'message': "Welcome to the Mini Food Recommendation Backend!"})
+    def welcome():
+        return jsonify({'message': "Welcome to the Timetable Manager Backend!"})
 
 
     with app.app_context():
