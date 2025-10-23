@@ -1,4 +1,4 @@
-from src.config import db
+from config import db
 from .user import User
 
 class Student(User):
