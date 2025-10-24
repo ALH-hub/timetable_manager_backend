@@ -23,7 +23,7 @@ def generate_token(user_id, expires_in_hours=24):
 
   token = jwt.encode(
     payload,
-    current_app.config['SECRET_KEY'],  # type: ignore
+    current_app.config['SECRET_KEY'],
     algorithm='HS256'
   )
 
