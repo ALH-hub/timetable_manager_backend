@@ -2,15 +2,13 @@ from flask import Flask, jsonify
 from flask_migrate import Migrate
 from config.db import db
 
-migrate = Migrate()
-
 def create_app():
     app = Flask(__name__)
     app.config.from_object('config.db.Config')
 
 
     db.init_app(app)
-    migrate.init_app(app, db)
+    Migrate(app, db)
 
     @app.route('/')
     def welcome():
