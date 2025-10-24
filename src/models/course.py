@@ -1,4 +1,4 @@
-from config import db
+from config.db import db
 
 class Course(db.Model):
     __tablename__ = 'courses'

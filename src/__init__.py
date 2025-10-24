@@ -1,6 +1,6 @@
 from flask import Flask, jsonify
 from flask_migrate import Migrate
-from config import db
+from config.db import db
 
 migrate = Migrate()
 

@@ -1,8 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
-import os
+from config.env import DATABASE_URL
 
 db = SQLAlchemy()
 
 class Config:
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///default.db')
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
