@@ -19,7 +19,7 @@ def create_app():
 
     with app.app_context():
         #db.create_all()
-        from blueprints import register_blueprints
+        from config.blueprints import register_blueprints
         register_blueprints(app)
 
     return app

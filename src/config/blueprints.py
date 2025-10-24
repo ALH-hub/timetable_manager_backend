@@ -1,8 +1,10 @@
 from routes.student import students_bp
+from routes.auth import auth_bp
 
 def register_blueprints(app):
     """Register Flask blueprints with the app."""
     app.register_blueprint(students_bp)
+    app.register_blueprint(auth_bp)
     # Uncomment and add blueprints when routes are ready:
     # app.register_blueprint(foods_bp)
     # app.register_blueprint(persons_bp)
