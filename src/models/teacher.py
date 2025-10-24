@@ -6,7 +6,7 @@ class Teacher(User):
 
     id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
 
-    course = db.relationship('courses', backref='teacher')
+    course = db.relationship('Course', backref='teacher')
 
     __mapper_args__ = {
         'polymorphic_identity': 'teacher',
