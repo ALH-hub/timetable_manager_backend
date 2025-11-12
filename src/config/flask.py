@@ -1,4 +1,5 @@
 from flask import Flask, jsonify
+from flask_cors import CORS
 from flask_migrate import Migrate
 from config.db import db
 
@@ -8,7 +9,11 @@ def create_app():
 
 
     db.init_app(app)
+    CORS(app)
+
     Migrate(app, db)
+
+    from models import Admin, Department, Teacher, Room, Course, TimeTable, TimeTableSlot
 
     @app.route('/')
     def welcome():
@@ -17,7 +22,7 @@ def create_app():
 
     with app.app_context():
         #db.create_all()
-        from config.blueprints import register_blueprints
+        from routes import register_blueprints
         register_blueprints(app)
 
     return app
