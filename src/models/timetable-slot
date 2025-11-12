@@ -1,0 +1,15 @@
+from config.db import db
+from datetime import datetime
+
+class TimeTableSlot(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    timetable_id = db.Column(db.Integer, db.ForeignKey('time_table.id'), nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
+    room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
+    day = db.Column(db.String(10), nullable=False)  # "monday", "tuesday"
+    start_time = db.Column(db.String(5), nullable=False)  # "09:00"
+    end_time = db.Column(db.String(5), nullable=False)    # "10:30"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    course = db.relationship('Course', backref='timetable_slots')
+    room = db.relationship('Room', backref='timetable_slots')

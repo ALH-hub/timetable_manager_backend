@@ -1,11 +1,10 @@
 from config.db import db
+from datetime import datetime
 
-class Classroom(db.Model):
-    __tablename__ = 'classrooms'
-
+class Room(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(50), unique=True, nullable=False)  # "A101", "Lab B"
+    room_type = db.Column(db.String(30), nullable=False)  # "classroom", "lab", "lecture_hall"
     capacity = db.Column(db.Integer, nullable=False)
-
-    def __repr__(self):
-        return f'<Classroom {self.name}>'
+    equipment = db.Column(db.String(200))  # "projector,whiteboard,computers"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
