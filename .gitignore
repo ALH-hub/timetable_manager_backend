@@ -7,6 +7,8 @@ __pycache__/
 *.pyo
 # Ignore Python optimized files
 *.pyd
+
 .vscode/
-.venv/
 venv/
+
+PROJECT_EVALUATION.md
