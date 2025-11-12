@@ -72,7 +72,7 @@ def get_timetables():
         status = request.args.get('status')
         academic_year = request.args.get('academic_year')
         semester = request.args.get('semester')
-        include_slots = request.args.get('include_slots', 'false').lower() == 'true'
+        include_slots = request.args.get('include_slots', 'true').lower() == 'true'
 
         # Build query
         query = TimeTable.query
@@ -92,7 +92,7 @@ def get_timetables():
         timetables = query.order_by(TimeTable.created_at.desc()).all()
 
         return jsonify({
-            'timetables': [serialize_timetable(tt, include_slots=True) for tt in timetables],
+            'timetables': [serialize_timetable(tt, include_slots) for tt in timetables],
             'count': len(timetables)
         }), 200
 
