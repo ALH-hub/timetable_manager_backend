@@ -2,8 +2,6 @@
 
 A comprehensive RESTful API for managing academic timetables, built with Flask and PostgreSQL. This system handles departments, teachers, courses, rooms, and automatic scheduling with conflict detection.
 
-**Author**: ALHADJI OUMATE
-**Student ID**: 22U2033
 **Version**: 1.0.0
 
 ---
@@ -146,7 +144,7 @@ timetable_manager_backend/
 ├── .gitignore                    # Git ignore rules
 ├── app.py                        # Root-level application entry point
 ├── requirements.txt              # Python dependencies
-├── seed_db.py                    # Database seeding script
+├── seed.py                       # Quick seed wrapper (backward compatibility)
 ├── README.md                     # This file
 ├── API_ROUTES.md                 # Complete API documentation
 ├── MIGRATIONS_GUIDE.md           # Database migration guide
@@ -157,6 +155,11 @@ timetable_manager_backend/
 │   ├── env.py                   # Migration environment
 │   ├── script.py.mako           # Migration template
 │   └── versions/                # Migration versions
+│
+├── scripts/                      # Utility scripts
+│   ├── __init__.py              # Package initialization
+│   ├── README.md                # Scripts documentation
+│   └── seed_database.py         # Advanced database seeding with conflict detection
 │
 └── src/                          # Main application code
     ├── __init__.py              # Package initialization
@@ -404,21 +407,34 @@ Expected tables:
 
 ### Step 7: Seed Database (Optional)
 
-Populate the database with sample data:
+Populate the database with sample data using the advanced seeding script:
 
 ```bash
-python3 seed_db.py
+# Using the main script with conflict detection
+python3 scripts/seed_database.py
+
+# Or using the quick wrapper
+python3 seed.py
 ```
+
+The advanced seeding script includes:
+
+- **Comprehensive Conflict Detection**: Prevents room and teacher double-booking
+- **Smart Room Assignment**: Labs for CS/Engineering, lecture halls for large classes
+- **Duplicate Prevention**: Checks for existing records before creation
+- **Detailed Logging**: Shows what was created vs. skipped
 
 This creates:
 
 - 3 admin users (admin/admin123, registrar/registrar123, scheduler/scheduler123)
 - 7 departments (CS, Math, Physics, Chemistry, Biology, Engineering, Business)
-- 35 teachers (5 per department)
+- 42 teachers (6 per department with unique emails)
 - 35 rooms (20 classrooms, 10 labs, 5 lecture halls)
-- 50+ courses with realistic course codes
+- 50+ courses with realistic course codes and assigned teachers
 - 14 timetables (Fall 2024 and Spring 2025 for each department)
-- 300+ scheduled time slots with conflict detection
+- 300+ scheduled time slots with no conflicts
+
+For detailed information about seeding, see [scripts/README.md](scripts/README.md)
 
 ---
 

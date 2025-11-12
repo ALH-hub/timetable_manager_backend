@@ -41,12 +41,26 @@ class TimeTableSlot(db.Model):
     # Relationships
     course = db.relationship('Course', backref='timetable_slots')
     room = db.relationship('Room', backref='timetable_slots')
-    timetable = db.relationship('TimeTable', back_populates='slots')
 
     # Constraint to prevent overlapping slots in the same room
     __table_args__ = (
         db.CheckConstraint('start_time < end_time', name='check_time_order'),
+        db.CheckConstraint('day_of_week >= 0 AND day_of_week <= 6', name='check_valid_day')
     )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'timetable_id': self.timetable_id,
+            'course_id': self.course_id,
+            'room_id': self.room_id,
+            'day_of_week': self.day_of_week,
+            'start_time': self.start_time.strftime('%H:%M'),
+            'end_time': self.end_time.strftime('%H:%M'),
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
 
     def __repr__(self):
         return f'<TimeTableSlot {self.course.code if self.course else "N/A"} on Day {self.day_of_week}>'
