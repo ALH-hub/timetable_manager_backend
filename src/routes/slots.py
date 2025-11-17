@@ -6,15 +6,14 @@ from config.db import db
 from services.jwt_service import token_required
 from datetime import time
 
-slots_bp = Blueprint('slots', __name__, url_prefix='/api/slots')
+slots_bp = Blueprint('slots', __name__, url_prefix='/api/timetables/<int:timetable_id>/slots')
 
 
 @slots_bp.route('/', methods=['GET'])
-def get_slots():
+def get_slots(timetable_id):
     """Get all timetable slots with optional filtering."""
     try:
-        # Get query parameters
-        timetable_id = request.args.get('timetable_id', type=int)
+         # Get query parameters
         course_id = request.args.get('course_id', type=int)
         room_id = request.args.get('room_id', type=int)
         day_of_week = request.args.get('day_of_week', type=int)
@@ -64,7 +63,7 @@ def get_slots():
         return jsonify({'error': str(e)}), 500
 
 
-@slots_bp.route('timetable/<int:timetable_id>', methods=['POST'])
+@slots_bp.route('/', methods=['POST'])
 @token_required
 def create_slot(current_admin, timetable_id):
     """Create a new timetable slot."""
@@ -78,7 +77,7 @@ def create_slot(current_admin, timetable_id):
                 return jsonify({'error': f'{field} is required'}), 400
 
         # Validate foreign keys exist
-        timetable = TimeTable.query.get(data[timetable_id])
+        timetable = TimeTable.query.get(timetable_id)
         if not timetable:
             return jsonify({'error': 'Timetable not found'}), 404
 
@@ -137,7 +136,7 @@ def create_slot(current_admin, timetable_id):
 
         # Create new slot
         slot = TimeTableSlot(
-            timetable_id=data['timetable_id'],
+            timetable_id=timetable_id,
             course_id=data['course_id'],
             room_id=data['room_id'],
             day_of_week=data['day_of_week'],
@@ -177,10 +176,13 @@ def create_slot(current_admin, timetable_id):
 
 
 @slots_bp.route('/<int:slot_id>', methods=['GET'])
-def get_slot(slot_id):
+def get_slot(timetable_id, slot_id):
     """Get a specific timetable slot."""
     try:
         slot = TimeTableSlot.query.get_or_404(slot_id)
+
+        if slot.timetable_id != timetable_id :
+            return jsonify({'error': 'Timetable slot not found!!'})
 
         return jsonify({
             'slot': {
@@ -214,15 +216,15 @@ def get_slot(slot_id):
 
 @slots_bp.route('/<int:slot_id>', methods=['PUT'])
 @token_required
-def update_slot(current_admin, slot_id):
+def update_slot(current_admin, timetable_id, slot_id):
     """Update a timetable slot."""
     try:
         slot = TimeTableSlot.query.get_or_404(slot_id)
         data = request.get_json()
 
         # Validate foreign keys if provided
-        if 'timetable_id' in data:
-            timetable = TimeTable.query.get(data['timetable_id'])
+        if timetable_id:
+            timetable = TimeTable.query.get(timetable_id)
             if not timetable:
                 return jsonify({'error': 'Timetable not found'}), 404
 
@@ -303,8 +305,8 @@ def update_slot(current_admin, slot_id):
                     }), 400
 
         # Update fields
-        if 'timetable_id' in data:
-            slot.timetable_id = data['timetable_id']
+        if timetable_id:
+            slot.timetable_id = timetable_id
         if 'course_id' in data:
             slot.course_id = data['course_id']
         if 'room_id' in data:
@@ -349,10 +351,13 @@ def update_slot(current_admin, slot_id):
 
 @slots_bp.route('/<int:slot_id>', methods=['DELETE'])
 @token_required
-def delete_slot(current_admin, slot_id):
+def delete_slot(current_admin, timetable_id, slot_id):
     """Delete a timetable slot."""
     try:
         slot = TimeTableSlot.query.get_or_404(slot_id)
+
+        if slot.timetable_id != timetable_id:
+            return jsonify({'error': 'Wrong timetable slot for this timetable'}), 404
 
         db.session.delete(slot)
         db.session.commit()
@@ -366,7 +371,7 @@ def delete_slot(current_admin, slot_id):
 
 @slots_bp.route('/conflicts', methods=['POST'])
 @token_required
-def check_conflicts(current_admin):
+def check_conflicts(current_admin, timetable_id):
     """Check for scheduling conflicts for a proposed time slot."""
     try:
         data = request.get_json()
@@ -445,7 +450,7 @@ def check_conflicts(current_admin):
 
 @slots_bp.route('/bulk-create', methods=['POST'])
 @token_required
-def bulk_create_slots(current_admin):
+def bulk_create_slots(current_admin, timetable_id):
     """Create multiple timetable slots at once."""
     try:
         data = request.get_json()
@@ -459,7 +464,7 @@ def bulk_create_slots(current_admin):
         for i, slot_data in enumerate(data['slots']):
             try:
                 # Validate required fields for each slot
-                required_fields = ['timetable_id', 'course_id', 'room_id', 'day_of_week', 'start_time', 'end_time']
+                required_fields = ['course_id', 'room_id', 'day_of_week', 'start_time', 'end_time']
                 for field in required_fields:
                     if field not in slot_data:
                         errors.append(f'Slot {i+1}: {field} is required')
@@ -490,7 +495,7 @@ def bulk_create_slots(current_admin):
 
                 # Create slot
                 slot = TimeTableSlot(
-                    timetable_id=slot_data['timetable_id'],
+                    timetable_id=timetable_id,
                     course_id=slot_data['course_id'],
                     room_id=slot_data['room_id'],
                     day_of_week=slot_data['day_of_week'],
