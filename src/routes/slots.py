@@ -5,7 +5,6 @@ from models.classroom import Room
 from config.db import db
 from services.jwt_service import token_required
 from datetime import time
-from sqlalchemy import and_
 
 slots_bp = Blueprint('slots', __name__, url_prefix='/api/slots')
 
@@ -65,21 +64,21 @@ def get_slots():
         return jsonify({'error': str(e)}), 500
 
 
-@slots_bp.route('/', methods=['POST'])
+@slots_bp.route('timetable/<int:timetable_id>', methods=['POST'])
 @token_required
-def create_slot(current_admin):
+def create_slot(current_admin, timetable_id):
     """Create a new timetable slot."""
     try:
         data = request.get_json()
 
         # Validate required fields
-        required_fields = ['timetable_id', 'course_id', 'room_id', 'day_of_week', 'start_time', 'end_time']
+        required_fields = ['course_id', 'room_id', 'day_of_week', 'start_time', 'end_time']
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'{field} is required'}), 400
 
         # Validate foreign keys exist
-        timetable = TimeTable.query.get(data['timetable_id'])
+        timetable = TimeTable.query.get(data[timetable_id])
         if not timetable:
             return jsonify({'error': 'Timetable not found'}), 404
 
