@@ -11,7 +11,7 @@ WORKDIR /app
 
 # Install system dependencies required for some Python packages
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential libpq-dev gcc git \
+    && apt-get install -y --no-install-recommends build-essential libpq-dev gcc git postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage Docker cache

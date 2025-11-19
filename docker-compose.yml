@@ -1,25 +1,42 @@
 services:
   db:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: oumate
-      POSTGRES_PASSWORD: Oum%40psql.
+      POSTGRES_PASSWORD: oumate-psql123
       POSTGRES_DB: timetable_manager
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - '6543:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U oumate -d timetable_manager']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
 
   web:
     build: .
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - '5000:5000'
     environment:
-      SQLALCHEMY_DATABASE_URI: postgresql://oumate:Oum%40psql.@db:5432/timetable_manager
       FLASK_APP: app.py
-    command: flask run --host=0.0.0.0
+      FLASK_ENV: development
+      DB_USER: oumate
+      DB_PASSWORD: oumate-psql123
+      DB_NAME: timetable_manager
+      DB_HOST: db
+      DB_PORT: '5432'
+      # Provide DATABASE_URL so config.env picks correct host (container service name 'db').
+      DATABASE_URL: postgresql://oumate:oumate-psql123@db:5432/timetable_manager
+      # Removed SQLALCHEMY_DATABASE_URI to rely on dynamic builder; prevents conflict with host .env using localhost.
+    command: >
+      bash -c "echo 'Waiting for database...'; for i in {1..30}; do pg_isready -h db -U oumate -d timetable_manager && break; sleep 2; done; pg_isready -h db -U oumate -d timetable_manager || { echo 'Database not ready'; exit 1; }; flask run --host=0.0.0.0"
 
 volumes:
   pgdata:
