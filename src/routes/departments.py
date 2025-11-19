@@ -8,8 +8,7 @@ departments_bp = Blueprint('departments', __name__, url_prefix='/api/departments
 
 
 @departments_bp.route('/', methods=['GET'])
-@token_required
-def get_departments(current_admin):
+def get_departments():
     """Get all departments."""
     try:
         departments = Department.query.all()
@@ -80,8 +79,7 @@ def create_department(current_admin):
 
 
 @departments_bp.route('/<int:department_id>', methods=['GET'])
-@token_required
-def get_department(current_admin, department_id):
+def get_department(department_id):
     """Get a specific department."""
     try:
         department = Department.query.get_or_404(department_id)
@@ -198,8 +196,7 @@ def get_department_teachers(current_admin, department_id):
 
 
 @departments_bp.route('/<int:department_id>/courses', methods=['GET'])
-@token_required
-def get_department_courses(current_admin, department_id):
+def get_department_courses(department_id):
     """Get all courses in a department."""
     try:
         department = Department.query.get_or_404(department_id)
