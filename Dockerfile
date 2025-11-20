@@ -29,4 +29,4 @@ EXPOSE 5000
 
 # Default command: run migrations, optional seed (safe-guarded with || true) and start gunicorn
 # NOTE: This runs migrations and seeding on container start (useful for development). Remove seed step for production.
-CMD ["sh", "-c", "export FLASK_APP=app.py; flask db upgrade || true; exec gunicorn -w 4 -b 0.0.0.0:5000 app:app"]
+CMD ["sh", "-c", "export FLASK_APP=app.py; flask db migrate || true; flask db upgrade || true; exec gunicorn -w 4 -b 0.0.0.0:5000 app:app"]

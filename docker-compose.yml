@@ -32,9 +32,7 @@ services:
       DB_NAME: timetable_manager
       DB_HOST: db
       DB_PORT: '5432'
-      # Provide DATABASE_URL so config.env picks correct host (container service name 'db').
       DATABASE_URL: postgresql://oumate:oumate-psql123@db:5432/timetable_manager
-      # Removed SQLALCHEMY_DATABASE_URI to rely on dynamic builder; prevents conflict with host .env using localhost.
     command: >
       bash -c "echo 'Waiting for database...'; for i in {1..30}; do pg_isready -h db -U oumate -d timetable_manager && break; sleep 2; done; pg_isready -h db -U oumate -d timetable_manager || { echo 'Database not ready'; exit 1; }; flask run --host=0.0.0.0"
 
