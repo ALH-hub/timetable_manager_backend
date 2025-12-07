@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from models.course import Course
 from models.department import Department
 from models.teacher import Teacher
+from models.level import Level
 from config.db import db
 from services.jwt_service import token_required
 from sqlalchemy.exc import IntegrityError
@@ -17,6 +18,7 @@ def get_courses(current_admin):
         # Get query parameters
         department_id = request.args.get('department_id', type=int)
         teacher_id = request.args.get('teacher_id', type=int)
+        level_id = request.args.get('level_id', type=int)
         semester = request.args.get('semester')
         year = request.args.get('year', type=int)
         is_active = request.args.get('is_active', type=bool)
@@ -29,6 +31,9 @@ def get_courses(current_admin):
 
         if teacher_id:
             query = query.filter_by(teacher_id=teacher_id)
+
+        if level_id:
+            query = query.filter_by(level_id=level_id)
 
         if semester:
             query = query.filter_by(semester=semester)
@@ -50,6 +55,9 @@ def get_courses(current_admin):
                 'department_name': course.department.name,
                 'teacher_id': course.teacher_id,
                 'teacher_name': course.teacher.name if course.teacher else None,
+                'level_id': course.level_id,
+                'level_name': course.level.name if course.level else None,
+                'level_code': course.level.code if course.level else None,
                 'weekly_sessions': course.weekly_sessions,
                 'semester': course.semester,
                 'year': course.year,
@@ -91,6 +99,12 @@ def create_course(current_admin):
             if teacher.department_id != data['department_id']:
                 return jsonify({'error': 'Teacher must belong to the same department'}), 400
 
+        # Check if level exists (if provided)
+        if data.get('level_id'):
+            level = Level.query.get(data['level_id'])
+            if not level:
+                return jsonify({'error': 'Level not found'}), 404
+
         # Check if course code already exists
         if Course.query.filter_by(code=data['code']).first():
             return jsonify({'error': 'Course code already exists'}), 400
@@ -106,6 +120,7 @@ def create_course(current_admin):
             code=data['code'],
             department_id=data['department_id'],
             teacher_id=data.get('teacher_id'),
+            level_id=data.get('level_id'),
             weekly_sessions=weekly_sessions,
             semester=data.get('semester'),
             year=data.get('year'),
@@ -125,6 +140,9 @@ def create_course(current_admin):
                 'department_name': course.department.name,
                 'teacher_id': course.teacher_id,
                 'teacher_name': course.teacher.name if course.teacher else None,
+                'level_id': course.level_id,
+                'level_name': course.level.name if course.level else None,
+                'level_code': course.level.code if course.level else None,
                 'weekly_sessions': course.weekly_sessions,
                 'semester': course.semester,
                 'year': course.year,
@@ -162,6 +180,9 @@ def get_course(current_admin, course_id):
                 'teacher_id': course.teacher_id,
                 'teacher_name': course.teacher.name if course.teacher else None,
                 'teacher_email': course.teacher.email if course.teacher else None,
+                'level_id': course.level_id,
+                'level_name': course.level.name if course.level else None,
+                'level_code': course.level.code if course.level else None,
                 'weekly_sessions': course.weekly_sessions,
                 'semester': course.semester,
                 'year': course.year,
@@ -213,6 +234,13 @@ def update_course(current_admin, course_id):
                 if teacher.department_id != dept_id:
                     return jsonify({'error': 'Teacher must belong to the same department'}), 400
 
+        # Check if level exists (if changing level)
+        if 'level_id' in data:
+            if data['level_id']:  # If not None
+                level = Level.query.get(data['level_id'])
+                if not level:
+                    return jsonify({'error': 'Level not found'}), 404
+
         # Check if course code already exists (if changing code)
         if data.get('code') and data['code'] != course.code:
             existing_course = Course.query.filter_by(code=data['code']).first()
@@ -233,6 +261,8 @@ def update_course(current_admin, course_id):
             course.department_id = data['department_id']
         if 'teacher_id' in data:
             course.teacher_id = data['teacher_id']
+        if 'level_id' in data:
+            course.level_id = data['level_id']
         if 'weekly_sessions' in data:
             course.weekly_sessions = data['weekly_sessions']
         if 'semester' in data:
@@ -254,6 +284,9 @@ def update_course(current_admin, course_id):
                 'department_name': course.department.name,
                 'teacher_id': course.teacher_id,
                 'teacher_name': course.teacher.name if course.teacher else None,
+                'level_id': course.level_id,
+                'level_name': course.level.name if course.level else None,
+                'level_code': course.level.code if course.level else None,
                 'weekly_sessions': course.weekly_sessions,
                 'semester': course.semester,
                 'year': course.year,
@@ -327,7 +360,9 @@ def assign_teacher(current_admin, course_id):
                 'name': course.name,
                 'code': course.code,
                 'teacher_id': course.teacher_id,
-                'teacher_name': teacher.name
+                'teacher_name': teacher.name,
+                'level_id': course.level_id,
+                'level_name': course.level.name if course.level else None
             }
         }), 200
 
@@ -353,7 +388,9 @@ def unassign_teacher(current_admin, course_id):
                 'name': course.name,
                 'code': course.code,
                 'teacher_id': None,
-                'teacher_name': None
+                'teacher_name': None,
+                'level_id': course.level_id,
+                'level_name': course.level.name if course.level else None
             }
         }), 200
 
