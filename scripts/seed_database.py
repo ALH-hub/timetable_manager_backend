@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from config import create_app
 from config.db import db
-from models import Admin, Department, Teacher, Room, Course, TimeTable, TimeTableSlot
+from models import Admin, Department, Teacher, Room, Course, TimeTable, TimeTableSlot, Level
 
 
 class ConflictDetector:
@@ -300,6 +300,40 @@ def seed_teachers(departments):
     return teachers
 
 
+def seed_levels():
+    """Create default student levels"""
+    print("\n" + "=" * 70)
+    print("CREATING LEVELS")
+    print("=" * 70)
+
+    levels_data = [
+        {'name': 'Level 1', 'code': 'L1', 'order': 1, 'description': 'First year undergraduate level'},
+        {'name': 'Level 2', 'code': 'L2', 'order': 2, 'description': 'Second year undergraduate level'},
+        {'name': 'Level 3', 'code': 'L3', 'order': 3, 'description': 'Third year undergraduate level'},
+        {'name': 'Master 1', 'code': 'M1', 'order': 4, 'description': 'First year master level'},
+        {'name': 'Master 2', 'code': 'M2', 'order': 5, 'description': 'Second year master level'},
+    ]
+
+    levels = []
+    existing_codes = set(l.code for l in Level.query.all())
+
+    for level_data in levels_data:
+        if level_data['code'] in existing_codes:
+            existing = Level.query.filter_by(code=level_data['code']).first()
+            print(f"  [SKIP] {level_data['code']}: {level_data['name']} (already exists)")
+            levels.append(existing)
+            continue
+
+        level = Level(**level_data)
+        db.session.add(level)
+        levels.append(level)
+        print(f"  [CREATE] {level_data['code']}: {level_data['name']}")
+
+    db.session.commit()
+    print(f"\nTotal Levels: {len(levels)}")
+    return levels
+
+
 def seed_rooms():
     """Create classrooms, labs, and lecture halls with unique names"""
     print("\n" + "=" * 70)
@@ -374,7 +408,7 @@ def seed_rooms():
     return rooms
 
 
-def seed_courses(departments, teachers):
+def seed_courses(departments, teachers, levels=None):
     """Create courses with unique codes"""
     print("\n" + "=" * 70)
     print("CREATING COURSES")
@@ -467,11 +501,26 @@ def seed_courses(departments, teachers):
             # Assign a random teacher from the department
             teacher = random.choice(dept_teachers) if dept_teachers else None
 
+            # Assign level based on course code (101-199 = L1, 201-299 = L2, 301-399 = L3, 401+ = M1/M2)
+            level = None
+            if levels:
+                course_number = int(''.join(filter(str.isdigit, code)))
+                if 101 <= course_number <= 199:
+                    level = next((l for l in levels if l.code == 'L1'), None)
+                elif 201 <= course_number <= 299:
+                    level = next((l for l in levels if l.code == 'L2'), None)
+                elif 301 <= course_number <= 399:
+                    level = next((l for l in levels if l.code == 'L3'), None)
+                elif 401 <= course_number <= 499:
+                    # Alternate between M1 and M2 for 400-level courses
+                    level = next((l for l in levels if l.code == ('M1' if course_number % 2 == 1 else 'M2')), None)
+
             course = Course(
                 name=name,
                 code=code,
                 department_id=dept.id,
                 teacher_id=teacher.id if teacher else None,
+                level_id=level.id if level else None,
                 weekly_sessions=weekly_sessions,
                 semester=random.choice(semesters),
                 year=current_year,
@@ -481,7 +530,8 @@ def seed_courses(departments, teachers):
             courses.append(course)
 
             teacher_name = teacher.name if teacher else 'Unassigned'
-            print(f"  [CREATE] {code}: {name} ({weekly_sessions} sessions/week) - {teacher_name}")
+            level_name = level.code if level else 'Unassigned'
+            print(f"  [CREATE] {code}: {name} ({weekly_sessions} sessions/week) - {teacher_name} - Level: {level_name}")
 
     db.session.commit()
     print(f"\nTotal Courses: {len(courses)}")
@@ -751,8 +801,9 @@ def main():
             admins = seed_admins()
             departments = seed_departments()
             teachers = seed_teachers(departments)
+            levels = seed_levels()
             rooms = seed_rooms()
-            courses = seed_courses(departments, teachers)
+            courses = seed_courses(departments, teachers, levels)
             timetables = seed_timetables(departments, admins)
             slots = seed_timetable_slots(timetables, courses, rooms)
 
