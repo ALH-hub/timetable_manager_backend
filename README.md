@@ -97,9 +97,20 @@ Client -> Routes (Controller) -> Services (Business Logic) -> Models (Data Layer
 
 The system uses PostgreSQL with the following entity relationships:
 
-- **One-to-Many**: Department -> Teachers, Department -> Courses, Teacher -> Courses
-- **Many-to-One**: Course -> Teacher, Course -> Department, TimeTableSlot -> Room
+- **One-to-Many**: Department -> Teachers, Department -> Courses, Level -> Courses, Teacher -> Courses
+- **Many-to-One**: Course -> Teacher, Course -> Department, Course -> Level, TimeTableSlot -> Room
 - **Cascade Operations**: Deleting a timetable removes all associated slots
+
+### Entity Descriptions
+
+- **Admin**: System administrators with JWT authentication
+- **Department**: Academic departments organizing the institution
+- **Teacher**: Faculty members assigned to departments
+- **Level**: Student academic levels (Level 1, Level 2, Level 3, Master 1, Master 2)
+- **Course**: Academic courses with department, teacher, and level assignments
+- **Room**: Physical spaces (classrooms, labs, lecture halls) with capacity tracking
+- **TimeTable**: Weekly schedules for departments with status management
+- **TimeTableSlot**: Individual time slots linking courses to rooms and times
 
 ---
 
@@ -177,6 +188,7 @@ timetable_manager_backend/
     │   ├── classroom.py         # Room model
     │   ├── course.py            # Course model
     │   ├── department.py        # Department model
+    │   ├── level.py             # Student level model
     │   ├── teacher.py           # Teacher model
     │   └── timetable.py         # TimeTable and TimeTableSlot models
     │
@@ -185,14 +197,22 @@ timetable_manager_backend/
     │   ├── auth.py              # Authentication endpoints
     │   ├── courses.py           # Course management
     │   ├── departments.py       # Department management
+    │   ├── levels.py            # Level management
     │   ├── rooms.py             # Room management
     │   ├── slots.py             # TimeTable slot management
     │   ├── teachers.py          # Teacher management
     │   └── timetables.py        # Timetable management
     │
-    └── services/                 # Business logic
+    └── services/                 # Business logic layer
         ├── __init__.py          # Service exports
-        └── jwt_service.py       # JWT authentication service
+        ├── jwt_service.py       # JWT authentication service
+        ├── level_service.py     # Level business logic
+        ├── department_service.py # Department business logic
+        ├── teacher_service.py   # Teacher business logic
+        ├── course_service.py    # Course business logic
+        ├── room_service.py      # Room business logic
+        ├── timetable_service.py # Timetable business logic
+        └── slot_service.py      # Slot business logic
 ```
 
 ### Directory Descriptions
@@ -213,22 +233,38 @@ SQLAlchemy ORM models defining the database schema:
 - **department.py**: Academic departments
 - **teacher.py**: Faculty members
 - **classroom.py**: Physical rooms (classrooms, labs, lecture halls)
-- **course.py**: Academic courses
+- **course.py**: Academic courses with level assignments
+- **level.py**: Student levels (Level 1, 2, 3, Master 1, Master 2)
 - **timetable.py**: Timetables and individual time slots
 
 #### `/src/routes/`
 
 Flask Blueprints for API endpoints:
 
-- Each file handles CRUD operations for its respective entity
+- Each file handles HTTP request/response and delegates to services
 - All routes are protected with JWT authentication (except auth endpoints)
-- Includes validation, error handling, and filtering
+- Routes are thin controllers that validate input and format output
+- Business logic is handled by the service layer
 
 #### `/src/services/`
 
-Business logic and utilities:
+Business logic layer containing all domain logic:
 
 - **jwt_service.py**: Token generation, validation, and authentication decorators
+- **level_service.py**: Level CRUD operations and default level initialization
+- **department_service.py**: Department management and serialization
+- **teacher_service.py**: Teacher management, schedule retrieval, and serialization
+- **course_service.py**: Course management, teacher assignment, and serialization
+- **room_service.py**: Room management, availability checking, and schedule retrieval
+- **timetable_service.py**: Timetable CRUD, publishing, archiving, cloning, and statistics
+- **slot_service.py**: Slot management, conflict detection, and bulk operations
+
+The service layer follows a consistent pattern:
+
+- Service functions return tuples of (result, error_message)
+- All database operations are encapsulated in services
+- Services handle validation, business rules, and data transformation
+- Serialization functions convert models to dictionaries for JSON responses
 
 ---
 
