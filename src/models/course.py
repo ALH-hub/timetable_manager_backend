@@ -7,6 +7,7 @@ class Course(db.Model):
     code = db.Column(db.String(20), unique=True, nullable=False)   # "CS101" - Made unique
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)  # Made required
     teacher_id = db.Column(db.Integer, db.ForeignKey('teacher.id'))
+    level_id = db.Column(db.Integer, db.ForeignKey('level.id'))  # Optional level assignment
     weekly_sessions = db.Column(db.Integer, default=1)
     semester = db.Column(db.String(20))  # "Fall 2024", "Spring 2025"
     year = db.Column(db.Integer)  # Academic year
