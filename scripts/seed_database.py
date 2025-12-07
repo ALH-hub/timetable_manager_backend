@@ -29,53 +29,49 @@ class ConflictDetector:
     """Utility class for detecting scheduling conflicts"""
 
     def __init__(self):
-        # Track room usage: {(timetable_id, day, start_time, room_id): slot_id}
-        self.room_schedule = {}
-        # Track teacher usage: {(timetable_id, day, start_time, teacher_id): slot_id}
-        self.teacher_schedule = {}
+        # Track room usage: {(timetable_id, day, room_id): [(start_time, end_time, slot_id)]}
+        self.room_schedule = defaultdict(list)
+        # Track teacher usage: {(timetable_id, day, teacher_id): [(start_time, end_time, slot_id)]}
+        self.teacher_schedule = defaultdict(list)
         # Track course sessions: {course_id: count}
         self.course_sessions = defaultdict(int)
 
     def has_room_conflict(self, timetable_id, day, start_time, end_time, room_id):
-        """Check if room is already booked for this time slot"""
-        # Check all time slots that would overlap
-        for existing_key in self.room_schedule.keys():
-            existing_tt_id, existing_day, existing_start, existing_room_id = existing_key
+        """Check if room is already booked for this time slot (proper overlap detection)"""
+        key = (timetable_id, day, room_id)
+        existing_slots = self.room_schedule.get(key, [])
 
-            if (existing_tt_id == timetable_id and
-                existing_day == day and
-                existing_room_id == room_id):
-                # Check for time overlap
-                if self._times_overlap(start_time, end_time, existing_start):
-                    return True
+        for existing_start, existing_end, _ in existing_slots:
+            # Check for time overlap: two time periods overlap if:
+            # start1 < end2 AND end1 > start2
+            if start_time < existing_end and end_time > existing_start:
+                return True
         return False
 
     def has_teacher_conflict(self, timetable_id, day, start_time, end_time, teacher_id):
-        """Check if teacher is already scheduled for this time slot"""
+        """Check if teacher is already scheduled for this time slot (proper overlap detection)"""
         if teacher_id is None:
             return False
 
-        for existing_key in self.teacher_schedule.keys():
-            existing_tt_id, existing_day, existing_start, existing_teacher_id = existing_key
+        key = (timetable_id, day, teacher_id)
+        existing_slots = self.teacher_schedule.get(key, [])
 
-            if (existing_tt_id == timetable_id and
-                existing_day == day and
-                existing_teacher_id == teacher_id):
-                # Check for time overlap
-                if self._times_overlap(start_time, end_time, existing_start):
-                    return True
+        for existing_start, existing_end, _ in existing_slots:
+            # Check for time overlap: two time periods overlap if:
+            # start1 < end2 AND end1 > start2
+            if start_time < existing_end and end_time > existing_start:
+                return True
         return False
 
-    def _times_overlap(self, start1, end1, start2):
-        """Check if two time periods overlap (simplified check)"""
-        # Assuming standard 2-hour slots, check if they're the same start time
-        return start1 == start2
-
-    def register_slot(self, timetable_id, day, start_time, room_id, teacher_id, course_id, slot_id):
+    def register_slot(self, timetable_id, day, start_time, end_time, room_id, teacher_id, course_id, slot_id):
         """Register a scheduled slot to track conflicts"""
-        self.room_schedule[(timetable_id, day, start_time, room_id)] = slot_id
+        room_key = (timetable_id, day, room_id)
+        self.room_schedule[room_key].append((start_time, end_time, slot_id))
+
         if teacher_id:
-            self.teacher_schedule[(timetable_id, day, start_time, teacher_id)] = slot_id
+            teacher_key = (timetable_id, day, teacher_id)
+            self.teacher_schedule[teacher_key].append((start_time, end_time, slot_id))
+
         self.course_sessions[course_id] += 1
 
     def get_course_sessions(self, course_id):
@@ -409,76 +405,81 @@ def seed_rooms():
 
 
 def seed_courses(departments, teachers, levels=None):
-    """Create courses with unique codes"""
+    """Create courses with unique codes - ensuring each department has courses for all levels"""
     print("\n" + "=" * 70)
     print("CREATING COURSES")
     print("=" * 70)
 
-    course_templates = {
+    if not levels:
+        print("  [ERROR] No levels available. Cannot create courses.")
+        return []
+
+    # Base course templates - will be expanded to cover all levels
+    course_base_templates = {
         'CS': [
-            ('Introduction to Programming', 'CS101', 3),
-            ('Data Structures', 'CS201', 3),
-            ('Algorithms', 'CS301', 2),
-            ('Database Systems', 'CS202', 2),
-            ('Web Development', 'CS203', 2),
-            ('Software Engineering', 'CS302', 2),
-            ('Operating Systems', 'CS303', 2),
-            ('Computer Networks', 'CS304', 2),
-            ('Artificial Intelligence', 'CS401', 2),
-            ('Machine Learning', 'CS402', 2),
+            ('Introduction to Programming', 'CS', 3),
+            ('Data Structures', 'CS', 3),
+            ('Algorithms', 'CS', 2),
+            ('Database Systems', 'CS', 2),
+            ('Web Development', 'CS', 2),
+            ('Software Engineering', 'CS', 2),
+            ('Operating Systems', 'CS', 2),
+            ('Computer Networks', 'CS', 2),
+            ('Artificial Intelligence', 'CS', 2),
+            ('Machine Learning', 'CS', 2),
         ],
         'MATH': [
-            ('Calculus I', 'MATH101', 4),
-            ('Calculus II', 'MATH102', 4),
-            ('Linear Algebra', 'MATH201', 3),
-            ('Statistics', 'MATH202', 2),
-            ('Discrete Mathematics', 'MATH203', 2),
-            ('Differential Equations', 'MATH301', 2),
-            ('Abstract Algebra', 'MATH302', 2),
-            ('Real Analysis', 'MATH401', 2),
+            ('Calculus I', 'MATH', 4),
+            ('Calculus II', 'MATH', 4),
+            ('Linear Algebra', 'MATH', 3),
+            ('Statistics', 'MATH', 2),
+            ('Discrete Mathematics', 'MATH', 2),
+            ('Differential Equations', 'MATH', 2),
+            ('Abstract Algebra', 'MATH', 2),
+            ('Real Analysis', 'MATH', 2),
         ],
         'PHY': [
-            ('Physics I', 'PHY101', 3),
-            ('Physics II', 'PHY102', 3),
-            ('Quantum Mechanics', 'PHY301', 2),
-            ('Thermodynamics', 'PHY201', 2),
-            ('Electromagnetism', 'PHY202', 2),
-            ('Optics', 'PHY203', 2),
-            ('Astrophysics', 'PHY401', 2),
+            ('Physics I', 'PHY', 3),
+            ('Physics II', 'PHY', 3),
+            ('Quantum Mechanics', 'PHY', 2),
+            ('Thermodynamics', 'PHY', 2),
+            ('Electromagnetism', 'PHY', 2),
+            ('Optics', 'PHY', 2),
+            ('Astrophysics', 'PHY', 2),
         ],
         'CHEM': [
-            ('General Chemistry', 'CHEM101', 3),
-            ('Organic Chemistry I', 'CHEM201', 3),
-            ('Organic Chemistry II', 'CHEM202', 3),
-            ('Physical Chemistry', 'CHEM301', 2),
-            ('Analytical Chemistry', 'CHEM203', 2),
-            ('Biochemistry', 'CHEM302', 2),
+            ('General Chemistry', 'CHEM', 3),
+            ('Organic Chemistry I', 'CHEM', 3),
+            ('Organic Chemistry II', 'CHEM', 3),
+            ('Physical Chemistry', 'CHEM', 2),
+            ('Analytical Chemistry', 'CHEM', 2),
+            ('Biochemistry', 'CHEM', 2),
         ],
         'BIO': [
-            ('Biology I', 'BIO101', 3),
-            ('Biology II', 'BIO102', 3),
-            ('Genetics', 'BIO201', 2),
-            ('Molecular Biology', 'BIO301', 2),
-            ('Ecology', 'BIO202', 2),
-            ('Microbiology', 'BIO203', 2),
-            ('Anatomy', 'BIO302', 2),
+            ('Biology I', 'BIO', 3),
+            ('Biology II', 'BIO', 3),
+            ('Genetics', 'BIO', 2),
+            ('Molecular Biology', 'BIO', 2),
+            ('Ecology', 'BIO', 2),
+            ('Microbiology', 'BIO', 2),
+            ('Anatomy', 'BIO', 2),
         ],
         'ENG': [
-            ('Engineering Fundamentals', 'ENG101', 3),
-            ('Mechanics', 'ENG201', 2),
-            ('Circuits', 'ENG202', 2),
-            ('Materials Science', 'ENG301', 2),
-            ('Design Principles', 'ENG203', 2),
-            ('Thermodynamics', 'ENG302', 2),
+            ('Engineering Fundamentals', 'ENG', 3),
+            ('Mechanics', 'ENG', 2),
+            ('Circuits', 'ENG', 2),
+            ('Materials Science', 'ENG', 2),
+            ('Design Principles', 'ENG', 2),
+            ('Thermodynamics', 'ENG', 2),
         ],
         'BUS': [
-            ('Business Fundamentals', 'BUS101', 2),
-            ('Marketing', 'BUS201', 2),
-            ('Finance', 'BUS202', 2),
-            ('Management', 'BUS203', 2),
-            ('Economics', 'BUS204', 2),
-            ('Accounting', 'BUS301', 2),
-            ('Business Strategy', 'BUS302', 2),
+            ('Business Fundamentals', 'BUS', 2),
+            ('Marketing', 'BUS', 2),
+            ('Finance', 'BUS', 2),
+            ('Management', 'BUS', 2),
+            ('Economics', 'BUS', 2),
+            ('Accounting', 'BUS', 2),
+            ('Business Strategy', 'BUS', 2),
         ]
     }
 
@@ -487,13 +488,52 @@ def seed_courses(departments, teachers, levels=None):
     semesters = ['Fall', 'Spring']
     existing_codes = set(c.code for c in Course.query.all())
 
+    # Level to course number mapping
+    level_to_course_num = {
+        'L1': (101, 199),  # Level 1: 101-199
+        'L2': (201, 299),  # Level 2: 201-299
+        'L3': (301, 399),  # Level 3: 301-399
+        'M1': (401, 449),  # Master 1: 401-449
+        'M2': (450, 499),  # Master 2: 450-499
+    }
+
     for dept in departments:
         dept_teachers = [t for t in teachers if t.department_id == dept.id]
-        templates = course_templates.get(dept.code, [])
+        base_templates = course_base_templates.get(dept.code, [])
+
+        if not base_templates:
+            print(f"\n{dept.code} - {dept.name}: [SKIP] No templates available")
+            continue
 
         print(f"\n{dept.code} - {dept.name}:")
 
-        for name, code, weekly_sessions in templates:
+        # Ensure we have courses for all levels
+        # Distribute base templates across levels
+        level_course_count = {}
+        for level in levels:
+            level_course_count[level.code] = 0
+
+        course_num_counter = {level_code: start for level_code, (start, _) in level_to_course_num.items()}
+
+        # Assign courses to levels, ensuring each level gets at least one course
+        for idx, (name, prefix, weekly_sessions) in enumerate(base_templates):
+            # Determine which level this course should belong to
+            # Cycle through levels to ensure distribution
+            level_idx = idx % len(levels)
+            level = levels[level_idx]
+
+            # Get next available course number for this level
+            start_num, end_num = level_to_course_num[level.code]
+            course_num = course_num_counter[level.code]
+
+            if course_num > end_num:
+                # If we've exceeded the range, wrap around within the level
+                course_num = start_num + (course_num_counter[level.code] - end_num - 1)
+
+            code = f"{prefix}{course_num}"
+            course_num_counter[level.code] += 1
+            level_course_count[level.code] += 1
+
             if code in existing_codes:
                 print(f"  [SKIP] {code}: {name} (already exists)")
                 continue
@@ -501,28 +541,17 @@ def seed_courses(departments, teachers, levels=None):
             # Assign a random teacher from the department
             teacher = random.choice(dept_teachers) if dept_teachers else None
 
-            # Assign level based on course code (101-199 = L1, 201-299 = L2, 301-399 = L3, 401+ = M1/M2)
-            level = None
-            if levels:
-                course_number = int(''.join(filter(str.isdigit, code)))
-                if 101 <= course_number <= 199:
-                    level = next((l for l in levels if l.code == 'L1'), None)
-                elif 201 <= course_number <= 299:
-                    level = next((l for l in levels if l.code == 'L2'), None)
-                elif 301 <= course_number <= 399:
-                    level = next((l for l in levels if l.code == 'L3'), None)
-                elif 401 <= course_number <= 499:
-                    # Alternate between M1 and M2 for 400-level courses
-                    level = next((l for l in levels if l.code == ('M1' if course_number % 2 == 1 else 'M2')), None)
+            # Assign semester (distribute courses across semesters)
+            semester = semesters[idx % len(semesters)]
 
             course = Course(
                 name=name,
                 code=code,
                 department_id=dept.id,
                 teacher_id=teacher.id if teacher else None,
-                level_id=level.id if level else None,
+                level_id=level.id,
                 weekly_sessions=weekly_sessions,
-                semester=random.choice(semesters),
+                semester=semester,
                 year=current_year,
                 is_active=True
             )
@@ -530,11 +559,23 @@ def seed_courses(departments, teachers, levels=None):
             courses.append(course)
 
             teacher_name = teacher.name if teacher else 'Unassigned'
-            level_name = level.code if level else 'Unassigned'
-            print(f"  [CREATE] {code}: {name} ({weekly_sessions} sessions/week) - {teacher_name} - Level: {level_name}")
+            print(f"  [CREATE] {code}: {name} ({weekly_sessions} sessions/week) - {teacher_name} - Level: {level.code} - Semester: {semester}")
+
+        # Verify each level has at least one course
+        for level in levels:
+            if level_course_count[level.code] == 0:
+                print(f"  [WARNING] Level {level.code} has no courses assigned")
 
     db.session.commit()
     print(f"\nTotal Courses: {len(courses)}")
+
+    # Print summary by level
+    if courses:
+        print("\nCourses by Level:")
+        for level in levels:
+            level_courses = [c for c in courses if c.level_id == level.id]
+            print(f"  {level.code} ({level.name}): {len(level_courses)} courses")
+
     return courses
 
 
@@ -640,43 +681,55 @@ def seed_timetable_slots(timetables, courses, rooms):
         for course in dept_courses:
             sessions_needed = course.weekly_sessions
             sessions_scheduled = 0
-            attempts = 0
-            max_attempts = 100  # Increased attempts for better coverage
 
+            # Choose appropriate room based on course code and requirements
+            if course.code.startswith(('CS', 'ENG', 'CHEM', 'PHY', 'BIO')) and any(
+                keyword in course.name.lower() for keyword in ['lab', 'laboratory', 'practical']
+            ):
+                suitable_rooms = labs if labs else classrooms
+            elif course.code.endswith(('101', '102')):  # Introductory courses might need larger rooms
+                suitable_rooms = lecture_halls + classrooms
+            else:
+                suitable_rooms = classrooms
+
+            if not suitable_rooms:
+                suitable_rooms = rooms  # Fallback to all rooms
+
+            # Try all combinations systematically before giving up
+            days = list(range(5))  # Monday to Friday
+            tried_combinations = set()
+            max_attempts = len(days) * len(time_slots) * len(suitable_rooms) * 2  # Try all combinations twice
+
+            attempts = 0
             while sessions_scheduled < sessions_needed and attempts < max_attempts:
                 attempts += 1
 
-                # Random day (0-4 for Mon-Fri)
-                day = random.randint(0, 4)
+                # Try different days and time slots systematically
+                day = days[sessions_scheduled % len(days)] if sessions_scheduled < len(days) else random.choice(days)
+                start_time, end_time = time_slots[sessions_scheduled % len(time_slots)] if sessions_scheduled < len(time_slots) else random.choice(time_slots)
 
-                # Random time slot
-                start_time, end_time = random.choice(time_slots)
+                # Create a unique combination key
+                combination_key = (day, start_time, end_time)
+                if combination_key in tried_combinations and attempts > len(days) * len(time_slots):
+                    # After trying all day/time combinations, allow repeats
+                    day = random.choice(days)
+                    start_time, end_time = random.choice(time_slots)
+                    combination_key = (day, start_time, end_time)
 
-                # Choose appropriate room based on course code and requirements
-                if course.code.startswith(('CS', 'ENG', 'CHEM', 'PHY', 'BIO')) and any(
-                    keyword in course.name.lower() for keyword in ['lab', 'laboratory', 'practical']
-                ):
-                    suitable_rooms = labs if labs else classrooms
-                elif course.code.endswith(('101', '102')):  # Introductory courses might need larger rooms
-                    suitable_rooms = lecture_halls + classrooms
-                else:
-                    suitable_rooms = classrooms
-
-                if not suitable_rooms:
-                    suitable_rooms = rooms  # Fallback to all rooms
+                tried_combinations.add(combination_key)
 
                 # Try to find a room without conflicts
                 room_found = False
                 random.shuffle(suitable_rooms)  # Randomize to distribute load
 
                 for room in suitable_rooms:
-                    # Check for room conflicts
+                    # Check for room conflicts (proper overlap detection)
                     if conflict_detector.has_room_conflict(
                         timetable.id, day, start_time, end_time, room.id
                     ):
                         continue
 
-                    # Check for teacher conflicts
+                    # Check for teacher conflicts (proper overlap detection)
                     if conflict_detector.has_teacher_conflict(
                         timetable.id, day, start_time, end_time, course.teacher_id
                     ):
@@ -696,9 +749,9 @@ def seed_timetable_slots(timetables, courses, rooms):
                     db.session.add(slot)
                     db.session.flush()  # Get slot ID
 
-                    # Register slot to track conflicts
+                    # Register slot to track conflicts (with end_time)
                     conflict_detector.register_slot(
-                        timetable.id, day, start_time, room.id,
+                        timetable.id, day, start_time, end_time, room.id,
                         course.teacher_id, course.id, slot.id
                     )
 
@@ -714,7 +767,7 @@ def seed_timetable_slots(timetables, courses, rooms):
                     conflict_count += 1
 
             if sessions_scheduled < sessions_needed:
-                print(f"  [WARNING] {course.code}: Only scheduled {sessions_scheduled}/{sessions_needed} sessions")
+                print(f"  [WARNING] {course.code}: Only scheduled {sessions_scheduled}/{sessions_needed} sessions after {attempts} attempts")
 
         print(f"  [SUMMARY] Scheduled: {scheduled_count} slots, Conflicts avoided: {conflict_count}")
 
@@ -748,6 +801,25 @@ def print_summary(admins, departments, teachers, rooms, courses, timetables, slo
         print(f"  Classrooms:          {classrooms}")
         print(f"  Laboratories:        {labs}")
         print(f"  Lecture Halls:       {halls}")
+
+    if courses and departments:
+        print(f"\nCourses by Department and Level:")
+        # Get all levels for lookup
+        all_levels = {l.id: l for l in Level.query.all()}
+
+        for dept in departments:
+            dept_courses = [c for c in courses if c.department_id == dept.id]
+            if dept_courses:
+                print(f"  {dept.code} - {dept.name}:")
+                # Group by level
+                level_courses = defaultdict(list)
+                for course in dept_courses:
+                    if course.level_id and course.level_id in all_levels:
+                        level = all_levels[course.level_id]
+                        level_courses[level.code].append(course)
+
+                for level_code in sorted(level_courses.keys()):
+                    print(f"    {level_code}: {len(level_courses[level_code])} courses")
 
     if slots:
         print(f"\nScheduling Statistics:")

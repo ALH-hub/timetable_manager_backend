@@ -16,9 +16,8 @@ levels_bp = Blueprint('levels', __name__, url_prefix='/api/levels')
 
 
 @levels_bp.route('/', methods=['GET'])
-@token_required
-def get_levels(current_admin):
-    """Get all levels with optional filtering."""
+def get_levels():
+    """Get all levels with optional filtering (public endpoint for students)."""
     try:
         # Get query parameters
         active_only = request.args.get('active_only', 'false').lower() == 'true'
