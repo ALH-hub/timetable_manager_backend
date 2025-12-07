@@ -8,6 +8,7 @@ from .rooms import rooms_bp
 from .courses import courses_bp
 from .timetables import timetables_bp
 from .slots import slots_bp
+from .levels import levels_bp
 
 def register_blueprints(app):
     """Register all blueprints with the Flask app"""
@@ -18,6 +19,7 @@ def register_blueprints(app):
     app.register_blueprint(courses_bp)
     app.register_blueprint(timetables_bp)
     app.register_blueprint(slots_bp)
+    app.register_blueprint(levels_bp)
 
 __all__ = [
     'register_blueprints',
@@ -27,5 +29,6 @@ __all__ = [
     'rooms_bp',
     'courses_bp',
     'timetables_bp',
-    'slots_bp'
+    'slots_bp',
+    'levels_bp'
 ]
