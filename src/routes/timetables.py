@@ -21,6 +21,7 @@ def get_timetables():
     """Get all timetables with optional filtering."""
     try:
         department_id = request.args.get('department_id', type=int)
+        level_id = request.args.get('level_id', type=int)
         status = request.args.get('status')
         academic_year = request.args.get('academic_year')
         semester = request.args.get('semester')
@@ -28,6 +29,7 @@ def get_timetables():
 
         timetables = get_all_timetables(
             department_id=department_id,
+            level_id=level_id,
             status=status,
             academic_year=academic_year,
             semester=semester
@@ -63,7 +65,8 @@ def create_timetable_route(current_admin):
             academic_year=data.get('academic_year'),
             semester=data.get('semester'),
             status=data.get('status', 'draft'),
-            created_by=current_admin.id
+            created_by=current_admin.id,
+            level_id=data.get('level_id')
         )
 
         if error:
@@ -106,7 +109,7 @@ def update_timetable_route(current_admin, timetable_id):
 
         # Build update dictionary
         update_data = {}
-        allowed_fields = ['name', 'department_id', 'week_start', 'week_end',
+        allowed_fields = ['name', 'department_id', 'level_id', 'week_start', 'week_end',
                          'academic_year', 'semester', 'status']
         for field in allowed_fields:
             if field in data:
@@ -210,7 +213,8 @@ def clone_timetable_route(current_admin, timetable_id):
             department_id=data.get('department_id'),
             academic_year=data.get('academic_year'),
             semester=data.get('semester'),
-            created_by=current_admin.id
+            created_by=current_admin.id,
+            level_id=data.get('level_id')
         )
 
         if error:

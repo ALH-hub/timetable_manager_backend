@@ -3,6 +3,7 @@ Timetable service for business logic related to timetables
 """
 from models.timetable import TimeTable, TimeTableSlot
 from models.department import Department
+from models.level import Level
 from config.db import db
 from datetime import datetime, date
 
@@ -10,7 +11,7 @@ from datetime import datetime, date
 VALID_STATUSES = ['draft', 'published', 'archived']
 
 
-def get_all_timetables(department_id=None, status=None, academic_year=None, semester=None):
+def get_all_timetables(department_id=None, level_id=None, status=None, academic_year=None, semester=None):
     """
     Get all timetables with optional filtering.
 
@@ -27,6 +28,9 @@ def get_all_timetables(department_id=None, status=None, academic_year=None, seme
 
     if department_id:
         query = query.filter_by(department_id=department_id)
+
+    if level_id:
+        query = query.filter_by(level_id=level_id)
 
     if status:
         query = query.filter_by(status=status)
@@ -54,7 +58,7 @@ def get_timetable_by_id(timetable_id):
 
 
 def create_timetable(name, department_id, week_start, week_end=None, academic_year=None,
-                     semester=None, status='draft', created_by=None):
+                     semester=None, status='draft', created_by=None, level_id=None):
     """
     Create a new timetable.
 
@@ -78,6 +82,12 @@ def create_timetable(name, department_id, week_start, week_end=None, academic_ye
         if not department:
             return None, "Department not found"
 
+        # Validate level if provided
+        if level_id is not None:
+            lvl = Level.query.get(level_id)
+            if not lvl:
+                return None, "Level not found"
+
         # Parse dates if strings
         if isinstance(week_start, str):
             week_start = date.fromisoformat(week_start)
@@ -95,6 +105,7 @@ def create_timetable(name, department_id, week_start, week_end=None, academic_ye
         timetable = TimeTable(
             name=name,
             department_id=department_id,
+            level_id=level_id,
             week_start=week_start,
             week_end=week_end,
             academic_year=academic_year,
@@ -138,6 +149,12 @@ def update_timetable(timetable_id, **kwargs):
             department = Department.query.get(kwargs['department_id'])
             if not department:
                 return None, "Department not found"
+
+        # Check if level exists (if changing level)
+        if 'level_id' in kwargs and kwargs['level_id'] is not None:
+            lvl = Level.query.get(kwargs['level_id'])
+            if not lvl:
+                return None, "Level not found"
 
         # Parse dates if provided
         week_start = timetable.week_start
@@ -278,7 +295,7 @@ def archive_timetable(timetable_id):
 
 
 def clone_timetable(timetable_id, name, week_start=None, week_end=None, department_id=None,
-                    academic_year=None, semester=None, created_by=None):
+                    academic_year=None, semester=None, created_by=None, level_id=None):
     """
     Create a copy of an existing timetable.
 
@@ -305,6 +322,7 @@ def clone_timetable(timetable_id, name, week_start=None, week_end=None, departme
         week_start = week_start or original.week_start
         week_end = week_end or original.week_end
         department_id = department_id or original.department_id
+        level_id = level_id if level_id is not None else original.level_id
         academic_year = academic_year or original.academic_year
         semester = semester or original.semester
 
@@ -318,6 +336,7 @@ def clone_timetable(timetable_id, name, week_start=None, week_end=None, departme
         new_timetable = TimeTable(
             name=name,
             department_id=department_id,
+            level_id=level_id,
             week_start=week_start,
             week_end=week_end,
             academic_year=academic_year,
@@ -422,6 +441,8 @@ def serialize_timetable(timetable, include_slots=False):
         'name': timetable.name,
         'department_id': timetable.department_id,
         'department_name': timetable.department.name if timetable.department else None,
+        'level_id': timetable.level_id,
+        'level_name': timetable.level.name if timetable.level else None,
         'week_start': timetable.week_start.isoformat() if timetable.week_start else None,
         'week_end': timetable.week_end.isoformat() if timetable.week_end else None,
         'academic_year': timetable.academic_year,
