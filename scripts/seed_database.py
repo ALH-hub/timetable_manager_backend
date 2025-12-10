@@ -98,6 +98,10 @@ def clear_database():
         deleted_counts['Course'] = Course.query.count()
         Course.query.delete()
 
+        # Levels may be referenced by courses; delete after courses
+        deleted_counts['Level'] = Level.query.count()
+        Level.query.delete()
+
         deleted_counts['Teacher'] = Teacher.query.count()
         Teacher.query.delete()
 
@@ -580,7 +584,7 @@ def seed_courses(departments, teachers, levels=None):
 
 
 def seed_timetables(departments, admins):
-    """Create timetables for each department"""
+    """Create timetables for each department and level"""
     print("\n" + "=" * 70)
     print("CREATING TIMETABLES")
     print("=" * 70)
@@ -603,34 +607,40 @@ def seed_timetables(departments, admins):
 
     admin = admins[0] if admins else None
 
+    # Fetch levels to attach to timetables
+    all_levels = Level.query.order_by(Level.order.asc()).all()
+
     for dept in departments:
         print(f"\n{dept.code} - {dept.name}:")
-        for semester, year, week_start, week_end in semesters:
-            # Check if timetable already exists
-            existing = TimeTable.query.filter_by(
-                department_id=dept.id,
-                semester=semester,
-                academic_year=f"{year}-{year+1}"
-            ).first()
+        for lvl in all_levels:
+            for semester, year, week_start, week_end in semesters:
+                # Check if timetable already exists for department+level+semester+year
+                existing = TimeTable.query.filter_by(
+                    department_id=dept.id,
+                    level_id=lvl.id,
+                    semester=semester,
+                    academic_year=f"{year}-{year+1}"
+                ).first()
 
-            if existing:
-                print(f"  [SKIP] {semester} {year} (already exists)")
-                timetables.append(existing)
-                continue
+                if existing:
+                    print(f"  [SKIP] {semester} {year} - {lvl.code} (already exists)")
+                    timetables.append(existing)
+                    continue
 
-            timetable = TimeTable(
-                name=f"{dept.name} {semester} {year}",
-                department_id=dept.id,
-                week_start=week_start,
-                week_end=week_end,
-                academic_year=f"{year}-{year+1}",
-                semester=semester,
-                status='published' if semester == 'Fall' else 'draft',
-                created_by=admin.id if admin else None
-            )
-            db.session.add(timetable)
-            timetables.append(timetable)
-            print(f"  [CREATE] {semester} {year} ({timetable.status})")
+                timetable = TimeTable(
+                    name=f"{dept.name} {lvl.code} {semester} {year}",
+                    department_id=dept.id,
+                    level_id=lvl.id,
+                    week_start=week_start,
+                    week_end=week_end,
+                    academic_year=f"{year}-{year+1}",
+                    semester=semester,
+                    status='published' if semester == 'Fall' else 'draft',
+                    created_by=admin.id if admin else None
+                )
+                db.session.add(timetable)
+                timetables.append(timetable)
+                print(f"  [CREATE] {semester} {year} - {lvl.code} ({timetable.status})")
 
     db.session.commit()
     print(f"\nTotal Timetables: {len(timetables)}")
@@ -666,10 +676,11 @@ def seed_timetable_slots(timetables, courses, rooms):
     for timetable in timetables:
         print(f"\n{timetable.name}:")
 
-        # Get courses for this department and semester
+        # Get courses for this department, level (if set) and semester
         dept_courses = [c for c in courses
-                       if c.department_id == timetable.department_id
-                       and c.semester == timetable.semester]
+                if c.department_id == timetable.department_id
+                and c.semester == timetable.semester
+                and (timetable.level_id is None or c.level_id == timetable.level_id)]
 
         if not dept_courses:
             print("  [INFO] No courses found for this timetable")
