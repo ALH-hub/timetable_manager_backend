@@ -7,6 +7,7 @@ class TimeTable(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)  # "Computer Science Fall 2024"
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
+    level_id = db.Column(db.Integer, db.ForeignKey('level.id'), nullable=True)
     week_start = db.Column(db.Date, nullable=False)
     week_end = db.Column(db.Date)
     academic_year = db.Column(db.String(20))  # "2024-2025"
@@ -18,6 +19,7 @@ class TimeTable(db.Model):
 
     # Relationships
     department = db.relationship('Department', backref='timetables')
+    level = db.relationship('Level', backref='timetables')
     creator = db.relationship('Admin', backref='created_timetables')
     slots = db.relationship('TimeTableSlot', backref='timetable', cascade='all, delete-orphan')
 
