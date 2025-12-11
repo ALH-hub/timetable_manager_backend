@@ -584,13 +584,14 @@ def seed_courses(departments, teachers, levels=None):
 
 
 def seed_timetables(departments, admins):
-    """Create timetables for each department and level"""
+    """Create timetables - maximum of 20 timetables"""
     print("\n" + "=" * 70)
-    print("CREATING TIMETABLES")
+    print("CREATING TIMETABLES (MAX 20)")
     print("=" * 70)
 
     timetables = []
     current_year = datetime.now().year
+    MAX_TIMETABLES = 20
 
     # Create Fall 2024 timetable
     fall_start = date(2024, 9, 2)
@@ -610,11 +611,12 @@ def seed_timetables(departments, admins):
     # Fetch levels to attach to timetables
     all_levels = Level.query.order_by(Level.order.asc()).all()
 
+    # Collect all possible timetable combinations
+    timetable_candidates = []
     for dept in departments:
-        print(f"\n{dept.code} - {dept.name}:")
         for lvl in all_levels:
             for semester, year, week_start, week_end in semesters:
-                # Check if timetable already exists for department+level+semester+year
+                # Check if timetable already exists
                 existing = TimeTable.query.filter_by(
                     department_id=dept.id,
                     level_id=lvl.id,
@@ -623,27 +625,52 @@ def seed_timetables(departments, admins):
                 ).first()
 
                 if existing:
-                    print(f"  [SKIP] {semester} {year} - {lvl.code} (already exists)")
+                    print(f"  [SKIP] {dept.code} - {lvl.code} {semester} {year} (already exists)")
                     timetables.append(existing)
-                    continue
+                    if len(timetables) >= MAX_TIMETABLES:
+                        break
+                else:
+                    timetable_candidates.append({
+                        'dept': dept,
+                        'level': lvl,
+                        'semester': semester,
+                        'year': year,
+                        'week_start': week_start,
+                        'week_end': week_end
+                    })
 
-                timetable = TimeTable(
-                    name=f"{dept.name} {lvl.code} {semester} {year}",
-                    department_id=dept.id,
-                    level_id=lvl.id,
-                    week_start=week_start,
-                    week_end=week_end,
-                    academic_year=f"{year}-{year+1}",
-                    semester=semester,
-                    status='published' if semester == 'Fall' else 'draft',
-                    created_by=admin.id if admin else None
-                )
-                db.session.add(timetable)
-                timetables.append(timetable)
-                print(f"  [CREATE] {semester} {year} - {lvl.code} ({timetable.status})")
+        if len(timetables) >= MAX_TIMETABLES:
+            break
+
+    # Create timetables up to the limit
+    for candidate in timetable_candidates:
+        if len(timetables) >= MAX_TIMETABLES:
+            break
+
+        dept = candidate['dept']
+        lvl = candidate['level']
+        semester = candidate['semester']
+        year = candidate['year']
+        week_start = candidate['week_start']
+        week_end = candidate['week_end']
+
+        timetable = TimeTable(
+            name=f"{dept.name} {lvl.code} {semester} {year}",
+            department_id=dept.id,
+            level_id=lvl.id,
+            week_start=week_start,
+            week_end=week_end,
+            academic_year=f"{year}-{year+1}",
+            semester=semester,
+            status='published' if semester == 'Fall' else 'draft',
+            created_by=admin.id if admin else None
+        )
+        db.session.add(timetable)
+        timetables.append(timetable)
+        print(f"  [CREATE] {dept.code} - {lvl.code} {semester} {year} ({timetable.status})")
 
     db.session.commit()
-    print(f"\nTotal Timetables: {len(timetables)}")
+    print(f"\nTotal Timetables Created: {len(timetables)} (Limit: {MAX_TIMETABLES})")
     return timetables
 
 
@@ -656,13 +683,18 @@ def seed_timetable_slots(timetables, courses, rooms):
     # Initialize conflict detector
     conflict_detector = ConflictDetector()
 
-    # Time slots: 8:00 AM to 6:00 PM (2-hour blocks)
+    # Time slots: 8:00 AM to 6:00 PM (expanded for more slots)
     time_slots = [
         (time(8, 0), time(10, 0)),   # 8:00 - 10:00 AM
+        (time(9, 0), time(11, 0)),   # 9:00 - 11:00 AM (additional slot)
         (time(10, 0), time(12, 0)),  # 10:00 AM - 12:00 PM
+        (time(11, 0), time(13, 0)),  # 11:00 AM - 1:00 PM (additional slot)
         (time(12, 0), time(14, 0)),  # 12:00 - 2:00 PM
+        (time(13, 0), time(15, 0)),  # 1:00 - 3:00 PM (additional slot)
         (time(14, 0), time(16, 0)),  # 2:00 - 4:00 PM
+        (time(15, 0), time(17, 0)),  # 3:00 - 5:00 PM (additional slot)
         (time(16, 0), time(18, 0)),  # 4:00 - 6:00 PM
+        (time(17, 0), time(19, 0)),  # 5:00 - 7:00 PM (additional slot)
     ]
 
     slots = []
@@ -706,23 +738,25 @@ def seed_timetable_slots(timetables, courses, rooms):
             if not suitable_rooms:
                 suitable_rooms = rooms  # Fallback to all rooms
 
-            # Try all combinations systematically before giving up
+            # Try all combinations systematically before giving up - maximize slot creation
             days = list(range(5))  # Monday to Friday
             tried_combinations = set()
-            max_attempts = len(days) * len(time_slots) * len(suitable_rooms) * 2  # Try all combinations twice
+            # Increased attempts to maximize slot creation - try all combinations multiple times
+            max_attempts = len(days) * len(time_slots) * len(suitable_rooms) * 10  # Try all combinations 10 times
 
             attempts = 0
             while sessions_scheduled < sessions_needed and attempts < max_attempts:
                 attempts += 1
 
                 # Try different days and time slots systematically
-                day = days[sessions_scheduled % len(days)] if sessions_scheduled < len(days) else random.choice(days)
-                start_time, end_time = time_slots[sessions_scheduled % len(time_slots)] if sessions_scheduled < len(time_slots) else random.choice(time_slots)
+                # Use modulo to cycle through days and times evenly
+                day = days[sessions_scheduled % len(days)] if sessions_scheduled < len(days) * 2 else random.choice(days)
+                start_time, end_time = time_slots[sessions_scheduled % len(time_slots)] if sessions_scheduled < len(time_slots) * 2 else random.choice(time_slots)
 
                 # Create a unique combination key
                 combination_key = (day, start_time, end_time)
                 if combination_key in tried_combinations and attempts > len(days) * len(time_slots):
-                    # After trying all day/time combinations, allow repeats
+                    # After trying all day/time combinations, allow repeats with different rooms
                     day = random.choice(days)
                     start_time, end_time = random.choice(time_slots)
                     combination_key = (day, start_time, end_time)
