@@ -184,7 +184,8 @@ def check_conflicts_route(current_admin, timetable_id):
             room_id=data['room_id'],
             day_of_week=data['day_of_week'],
             start_time_str=data['start_time'],
-            end_time_str=data['end_time']
+            end_time_str=data['end_time'],
+            timetable_id=timetable_id
         )
 
         if error:

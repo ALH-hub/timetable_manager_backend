@@ -26,22 +26,25 @@ from models import Admin, Department, Teacher, Room, Course, TimeTable, TimeTabl
 
 
 class ConflictDetector:
-    """Utility class for detecting scheduling conflicts"""
+    """Utility class for detecting scheduling conflicts across ALL timetables"""
 
     def __init__(self):
-        # Track room usage: {(timetable_id, day, room_id): [(start_time, end_time, slot_id)]}
+        # Track room usage across ALL timetables: {(day, room_id): [(start_time, end_time, slot_id, timetable_id)]}
+        # Changed: removed timetable_id from key to check conflicts across all timetables
         self.room_schedule = defaultdict(list)
-        # Track teacher usage: {(timetable_id, day, teacher_id): [(start_time, end_time, slot_id)]}
+        # Track teacher usage across ALL timetables: {(day, teacher_id): [(start_time, end_time, slot_id, timetable_id)]}
+        # Changed: removed timetable_id from key to check conflicts across all timetables
         self.teacher_schedule = defaultdict(list)
         # Track course sessions: {course_id: count}
         self.course_sessions = defaultdict(int)
 
     def has_room_conflict(self, timetable_id, day, start_time, end_time, room_id):
-        """Check if room is already booked for this time slot (proper overlap detection)"""
-        key = (timetable_id, day, room_id)
+        """Check if room is already booked for this time slot across ALL timetables (proper overlap detection)"""
+        # Check across all timetables, not just the current one
+        key = (day, room_id)
         existing_slots = self.room_schedule.get(key, [])
 
-        for existing_start, existing_end, _ in existing_slots:
+        for existing_start, existing_end, _, existing_timetable_id in existing_slots:
             # Check for time overlap: two time periods overlap if:
             # start1 < end2 AND end1 > start2
             if start_time < existing_end and end_time > existing_start:
@@ -49,14 +52,15 @@ class ConflictDetector:
         return False
 
     def has_teacher_conflict(self, timetable_id, day, start_time, end_time, teacher_id):
-        """Check if teacher is already scheduled for this time slot (proper overlap detection)"""
+        """Check if teacher is already scheduled for this time slot across ALL timetables (proper overlap detection)"""
         if teacher_id is None:
             return False
 
-        key = (timetable_id, day, teacher_id)
+        # Check across all timetables, not just the current one
+        key = (day, teacher_id)
         existing_slots = self.teacher_schedule.get(key, [])
 
-        for existing_start, existing_end, _ in existing_slots:
+        for existing_start, existing_end, _, existing_timetable_id in existing_slots:
             # Check for time overlap: two time periods overlap if:
             # start1 < end2 AND end1 > start2
             if start_time < existing_end and end_time > existing_start:
@@ -64,13 +68,15 @@ class ConflictDetector:
         return False
 
     def register_slot(self, timetable_id, day, start_time, end_time, room_id, teacher_id, course_id, slot_id):
-        """Register a scheduled slot to track conflicts"""
-        room_key = (timetable_id, day, room_id)
-        self.room_schedule[room_key].append((start_time, end_time, slot_id))
+        """Register a scheduled slot to track conflicts across all timetables"""
+        # Track room usage across all timetables
+        room_key = (day, room_id)
+        self.room_schedule[room_key].append((start_time, end_time, slot_id, timetable_id))
 
+        # Track teacher usage across all timetables
         if teacher_id:
-            teacher_key = (timetable_id, day, teacher_id)
-            self.teacher_schedule[teacher_key].append((start_time, end_time, slot_id))
+            teacher_key = (day, teacher_id)
+            self.teacher_schedule[teacher_key].append((start_time, end_time, slot_id, timetable_id))
 
         self.course_sessions[course_id] += 1
 
@@ -742,7 +748,7 @@ def seed_timetable_slots(timetables, courses, rooms):
             days = list(range(5))  # Monday to Friday
             tried_combinations = set()
             # Increased attempts to maximize slot creation - try all combinations multiple times
-            max_attempts = len(days) * len(time_slots) * len(suitable_rooms) * 10  # Try all combinations 10 times
+            max_attempts = len(days) * len(time_slots) * len(suitable_rooms) * 20  # Try all combinations 20 times
 
             attempts = 0
             while sessions_scheduled < sessions_needed and attempts < max_attempts:
@@ -753,28 +759,28 @@ def seed_timetable_slots(timetables, courses, rooms):
                 day = days[sessions_scheduled % len(days)] if sessions_scheduled < len(days) * 2 else random.choice(days)
                 start_time, end_time = time_slots[sessions_scheduled % len(time_slots)] if sessions_scheduled < len(time_slots) * 2 else random.choice(time_slots)
 
-                # Create a unique combination key
-                combination_key = (day, start_time, end_time)
+                # Create a unique combination key (include course to avoid duplicate attempts for same course)
+                combination_key = (day, start_time, end_time, course.id)
                 if combination_key in tried_combinations and attempts > len(days) * len(time_slots):
                     # After trying all day/time combinations, allow repeats with different rooms
                     day = random.choice(days)
                     start_time, end_time = random.choice(time_slots)
-                    combination_key = (day, start_time, end_time)
+                    combination_key = (day, start_time, end_time, course.id)
 
                 tried_combinations.add(combination_key)
 
-                # Try to find a room without conflicts
+                # Try to find a room without conflicts across ALL timetables
                 room_found = False
                 random.shuffle(suitable_rooms)  # Randomize to distribute load
 
                 for room in suitable_rooms:
-                    # Check for room conflicts (proper overlap detection)
+                    # Check for room conflicts across ALL timetables (proper overlap detection)
                     if conflict_detector.has_room_conflict(
                         timetable.id, day, start_time, end_time, room.id
                     ):
                         continue
 
-                    # Check for teacher conflicts (proper overlap detection)
+                    # Check for teacher conflicts across ALL timetables (proper overlap detection)
                     if conflict_detector.has_teacher_conflict(
                         timetable.id, day, start_time, end_time, course.teacher_id
                     ):
@@ -794,7 +800,7 @@ def seed_timetable_slots(timetables, courses, rooms):
                     db.session.add(slot)
                     db.session.flush()  # Get slot ID
 
-                    # Register slot to track conflicts (with end_time)
+                    # Register slot to track conflicts across all timetables
                     conflict_detector.register_slot(
                         timetable.id, day, start_time, end_time, room.id,
                         course.teacher_id, course.id, slot.id
@@ -810,6 +816,9 @@ def seed_timetable_slots(timetables, courses, rooms):
 
                 if not room_found:
                     conflict_count += 1
+                    # If we've tried many times without success, skip this course session to avoid infinite loops
+                    if attempts > max_attempts * 0.8:  # After 80% of attempts
+                        break
 
             if sessions_scheduled < sessions_needed:
                 print(f"  [WARNING] {course.code}: Only scheduled {sessions_scheduled}/{sessions_needed} sessions after {attempts} attempts")

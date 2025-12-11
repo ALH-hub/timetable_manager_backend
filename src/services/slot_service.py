@@ -100,28 +100,38 @@ def create_slot(timetable_id, course_id, room_id, day_of_week, start_time_str, e
         if not room.is_available:
             return None, "Room is not available"
 
-        # Check for conflicts - room double booking
-        room_conflict = TimeTableSlot.query.filter(
+        # Get semester and academic year from the timetable for conflict checking
+        timetable_semester = timetable.semester
+        timetable_academic_year = timetable.academic_year
+
+        # Check for conflicts - room double booking across timetables in the SAME semester and academic year
+        room_conflict = TimeTableSlot.query.join(TimeTable).filter(
             TimeTableSlot.room_id == room_id,
             TimeTableSlot.day_of_week == day_of_week,
             TimeTableSlot.start_time < end_time,
-            TimeTableSlot.end_time > start_time
+            TimeTableSlot.end_time > start_time,
+            TimeTable.semester == timetable_semester,
+            TimeTable.academic_year == timetable_academic_year
         ).first()
 
         if room_conflict:
-            return None, f"Room conflict: {room.name} is already booked at this time"
+            conflict_timetable = room_conflict.timetable.name if room_conflict.timetable else "Unknown"
+            return None, f"Room conflict: {room.name} is already booked at this time in timetable '{conflict_timetable}' ({timetable_semester} {timetable_academic_year})"
 
-        # Check for teacher conflicts (if course has a teacher)
+        # Check for teacher conflicts across timetables in the SAME semester and academic year (if course has a teacher)
         if course.teacher_id:
-            teacher_conflict = TimeTableSlot.query.join(Course).filter(
+            teacher_conflict = TimeTableSlot.query.join(Course).join(TimeTable).filter(
                 Course.teacher_id == course.teacher_id,
                 TimeTableSlot.day_of_week == day_of_week,
                 TimeTableSlot.start_time < end_time,
-                TimeTableSlot.end_time > start_time
+                TimeTableSlot.end_time > start_time,
+                TimeTable.semester == timetable_semester,
+                TimeTable.academic_year == timetable_academic_year
             ).first()
 
             if teacher_conflict:
-                return None, f"Teacher conflict: {course.teacher.name} is already scheduled at this time"
+                conflict_timetable = teacher_conflict.timetable.name if teacher_conflict.timetable else "Unknown"
+                return None, f"Teacher conflict: {course.teacher.name} is already scheduled at this time in timetable '{conflict_timetable}' ({timetable_semester} {timetable_academic_year})"
 
         # Create new slot
         slot = TimeTableSlot(
@@ -210,39 +220,54 @@ def update_slot(slot_id, timetable_id=None, course_id=None, room_id=None, day_of
         if start_time >= end_time:
             return None, "Start time must be before end time"
 
+        # Get the timetable to check semester and academic year
+        current_timetable = TimeTable.query.get(slot.timetable_id)
+        if not current_timetable:
+            return None, "Timetable not found for this slot"
+
+        timetable_semester = current_timetable.semester
+        timetable_academic_year = current_timetable.academic_year
+
         # Check for conflicts if time/room/day is being changed
         final_room_id = room_id if room_id else slot.room_id
         final_day_of_week = day_of_week if day_of_week is not None else slot.day_of_week
 
         if (room_id or day_of_week or start_time_str or end_time_str):
-            # Check for room conflicts (excluding current slot)
-            room_conflict = TimeTableSlot.query.filter(
+            # Check for room conflicts (excluding current slot) across timetables in the SAME semester and academic year
+            room_conflict = TimeTableSlot.query.join(TimeTable).filter(
                 TimeTableSlot.id != slot_id,
                 TimeTableSlot.room_id == final_room_id,
                 TimeTableSlot.day_of_week == final_day_of_week,
                 TimeTableSlot.start_time < end_time,
-                TimeTableSlot.end_time > start_time
+                TimeTableSlot.end_time > start_time,
+                TimeTable.semester == timetable_semester,
+                TimeTable.academic_year == timetable_academic_year
             ).first()
 
             if room_conflict:
                 room_obj = Room.query.get(final_room_id)
-                return None, f"Room conflict: {room_obj.name} is already booked at this time"
+                conflict_timetable = room_conflict.timetable.name if room_conflict.timetable else "Unknown"
+                return None, f"Room conflict: {room_obj.name} is already booked at this time in timetable '{conflict_timetable}' ({timetable_semester} {timetable_academic_year})"
 
         # Check for teacher conflicts if course is being changed
         final_course_id = course_id if course_id else slot.course_id
         if course_id or day_of_week or start_time_str or end_time_str:
             course_obj = Course.query.get(final_course_id)
             if course_obj and course_obj.teacher_id:
-                teacher_conflict = TimeTableSlot.query.join(Course).filter(
+                # Check for teacher conflicts across timetables in the SAME semester and academic year
+                teacher_conflict = TimeTableSlot.query.join(Course).join(TimeTable).filter(
                     TimeTableSlot.id != slot_id,
                     Course.teacher_id == course_obj.teacher_id,
                     TimeTableSlot.day_of_week == final_day_of_week,
                     TimeTableSlot.start_time < end_time,
-                    TimeTableSlot.end_time > start_time
+                    TimeTableSlot.end_time > start_time,
+                    TimeTable.semester == timetable_semester,
+                    TimeTable.academic_year == timetable_academic_year
                 ).first()
 
                 if teacher_conflict:
-                    return None, f"Teacher conflict: {course_obj.teacher.name} is already scheduled at this time"
+                    conflict_timetable = teacher_conflict.timetable.name if teacher_conflict.timetable else "Unknown"
+                    return None, f"Teacher conflict: {course_obj.teacher.name} is already scheduled at this time in timetable '{conflict_timetable}' ({timetable_semester} {timetable_academic_year})"
 
         # Update fields
         if timetable_id:
@@ -292,9 +317,10 @@ def delete_slot(slot_id):
         return False, f"Error deleting slot: {str(e)}"
 
 
-def check_conflicts(course_id, room_id, day_of_week, start_time_str, end_time_str):
+def check_conflicts(course_id, room_id, day_of_week, start_time_str, end_time_str, timetable_id=None):
     """
     Check for scheduling conflicts for a proposed time slot.
+    Checks conflicts only within the same semester and academic year.
 
     Args:
         course_id: Course ID
@@ -302,6 +328,7 @@ def check_conflicts(course_id, room_id, day_of_week, start_time_str, end_time_st
         day_of_week: Day of week (0-6)
         start_time_str: Start time in HH:MM format
         end_time_str: End time in HH:MM format
+        timetable_id: Optional timetable ID to get semester and academic year
 
     Returns:
         Tuple of (list of conflicts, error_message)
@@ -318,15 +345,32 @@ def check_conflicts(course_id, room_id, day_of_week, start_time_str, end_time_st
         if start_time >= end_time:
             return None, "Start time must be before end time"
 
+        # Get semester and academic year from timetable if provided
+        timetable_semester = None
+        timetable_academic_year = None
+        if timetable_id:
+            timetable = TimeTable.query.get(timetable_id)
+            if timetable:
+                timetable_semester = timetable.semester
+                timetable_academic_year = timetable.academic_year
+
         conflicts = []
 
-        # Check room conflicts
-        room_conflicts = TimeTableSlot.query.filter(
+        # Check room conflicts - filter by semester and academic year if available
+        room_query = TimeTableSlot.query.join(TimeTable).filter(
             TimeTableSlot.room_id == room_id,
             TimeTableSlot.day_of_week == day_of_week,
             TimeTableSlot.start_time < end_time,
             TimeTableSlot.end_time > start_time
-        ).all()
+        )
+
+        if timetable_semester and timetable_academic_year:
+            room_query = room_query.filter(
+                TimeTable.semester == timetable_semester,
+                TimeTable.academic_year == timetable_academic_year
+            )
+
+        room_conflicts = room_query.all()
 
         for conflict in room_conflicts:
             conflicts.append({
@@ -337,19 +381,29 @@ def check_conflicts(course_id, room_id, day_of_week, start_time_str, end_time_st
                     'course_name': conflict.course.name,
                     'start_time': conflict.start_time.strftime('%H:%M'),
                     'end_time': conflict.end_time.strftime('%H:%M'),
-                    'timetable_name': conflict.timetable.name
+                    'timetable_name': conflict.timetable.name,
+                    'semester': conflict.timetable.semester,
+                    'academic_year': conflict.timetable.academic_year
                 }
             })
 
-        # Check teacher conflicts
+        # Check teacher conflicts - filter by semester and academic year if available
         course = Course.query.get(course_id)
         if course and course.teacher_id:
-            teacher_conflicts = TimeTableSlot.query.join(Course).filter(
+            teacher_query = TimeTableSlot.query.join(Course).join(TimeTable).filter(
                 Course.teacher_id == course.teacher_id,
                 TimeTableSlot.day_of_week == day_of_week,
                 TimeTableSlot.start_time < end_time,
                 TimeTableSlot.end_time > start_time
-            ).all()
+            )
+
+            if timetable_semester and timetable_academic_year:
+                teacher_query = teacher_query.filter(
+                    TimeTable.semester == timetable_semester,
+                    TimeTable.academic_year == timetable_academic_year
+                )
+
+            teacher_conflicts = teacher_query.all()
 
             for conflict in teacher_conflicts:
                 conflicts.append({
@@ -361,7 +415,9 @@ def check_conflicts(course_id, room_id, day_of_week, start_time_str, end_time_st
                         'room_name': conflict.room.name,
                         'start_time': conflict.start_time.strftime('%H:%M'),
                         'end_time': conflict.end_time.strftime('%H:%M'),
-                        'timetable_name': conflict.timetable.name
+                        'timetable_name': conflict.timetable.name,
+                        'semester': conflict.timetable.semester,
+                        'academic_year': conflict.timetable.academic_year
                     }
                 })
 
