@@ -174,18 +174,23 @@ def check_conflicts_route(current_admin, timetable_id):
         data = request.get_json()
 
         # Validate required fields
-        required_fields = ['course_id', 'room_id', 'day_of_week', 'start_time', 'end_time']
+        required_fields = ['course_id', 'day_of_week', 'start_time', 'end_time']
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'{field} is required'}), 400
 
+        # Room ID is optional for conflict checking
+        room_id = data.get('room_id')
+        exclude_slot_id = data.get('exclude_slot_id')
+
         conflicts, error = check_conflicts(
             course_id=data['course_id'],
-            room_id=data['room_id'],
+            room_id=room_id,
             day_of_week=data['day_of_week'],
             start_time_str=data['start_time'],
             end_time_str=data['end_time'],
-            timetable_id=timetable_id
+            timetable_id=timetable_id,
+            exclude_slot_id=exclude_slot_id
         )
 
         if error:
