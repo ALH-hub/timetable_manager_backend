@@ -29,7 +29,8 @@ def register():
         admin = Admin(
             username=data['username'],
             email=data['email'],
-            role=data.get('role', 'admin')
+            role=data.get('role', 'admin'),
+            is_active=True
         )
         admin.set_password(data['password'])
 
@@ -71,6 +72,11 @@ def login():
         if not admin or not admin.check_password(data['password']):
             return jsonify({'error': 'Invalid credentials'}), 401
 
+        # Check if admin account is active (backward compatible)
+        is_active = getattr(admin, 'is_active', True)
+        if not is_active:
+            return jsonify({'error': 'Your account has been disabled. Please contact a super administrator.'}), 403
+
         # Generate token
         token = generate_token(admin.id)
 
@@ -81,7 +87,8 @@ def login():
                 'id': admin.id,
                 'username': admin.username,
                 'email': admin.email,
-                'role': admin.role
+                'role': admin.role,
+                'is_active': admin.is_active
             }
         }), 200
 
@@ -94,14 +101,79 @@ def login():
 def get_current_admin(current_admin):
     """Get current admin information."""
     return jsonify({
-        'admin': {
-            'id': current_admin.id,
-            'username': current_admin.username,
-            'email': current_admin.email,
-            'created_at': current_admin.created_at.isoformat(),
-            'updated_at': current_admin.updated_at.isoformat()
-        }
-    }), 200
+            'admin': {
+                'id': current_admin.id,
+                'username': current_admin.username,
+                'email': current_admin.email,
+                'role': current_admin.role,
+                'is_active': getattr(current_admin, 'is_active', True),
+                'created_at': current_admin.created_at.isoformat(),
+                'updated_at': current_admin.updated_at.isoformat()
+            }
+        }), 200
+
+
+@auth_bp.route('/admins', methods=['GET'])
+@token_required
+def get_all_admins(current_admin):
+    """Get all admin users."""
+    try:
+        admins = Admin.query.order_by(Admin.created_at.desc()).all()
+        return jsonify({
+            'admins': [
+                {
+                    'id': admin.id,
+                    'username': admin.username,
+                    'email': admin.email,
+                    'role': admin.role,
+                    'is_active': getattr(admin, 'is_active', True),
+                    'created_at': admin.created_at.isoformat(),
+                    'updated_at': admin.updated_at.isoformat()
+                }
+                for admin in admins
+            ]
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@auth_bp.route('/admins/<int:admin_id>/toggle-status', methods=['PUT'])
+@token_required
+def toggle_admin_status(current_admin, admin_id):
+    """Toggle admin account status (enable/disable). Only super admins can do this."""
+    try:
+        # Check if current admin is super admin
+        if current_admin.role != 'super_admin':
+            return jsonify({'error': 'Only super administrators can manage admin accounts'}), 403
+
+        # Prevent self-disable
+        if current_admin.id == admin_id:
+            return jsonify({'error': 'You cannot disable your own account'}), 400
+
+        # Find the admin to update
+        admin = Admin.query.get(admin_id)
+        if not admin:
+            return jsonify({'error': 'Admin not found'}), 404
+
+        # Toggle status (ensure is_active exists)
+        current_status = getattr(admin, 'is_active', True)
+        admin.is_active = not current_status
+        db.session.commit()
+
+        return jsonify({
+            'message': f'Admin account {"enabled" if admin.is_active else "disabled"} successfully',
+            'admin': {
+                'id': admin.id,
+                'username': admin.username,
+                'email': admin.email,
+                'role': admin.role,
+                'is_active': admin.is_active
+            }
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 
 @auth_bp.route('/change-password', methods=['PUT'])
