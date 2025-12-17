@@ -101,16 +101,16 @@ def login():
 def get_current_admin(current_admin):
     """Get current admin information."""
     return jsonify({
-            'admin': {
-                'id': current_admin.id,
-                'username': current_admin.username,
-                'email': current_admin.email,
+        'admin': {
+            'id': current_admin.id,
+            'username': current_admin.username,
+            'email': current_admin.email,
                 'role': current_admin.role,
                 'is_active': getattr(current_admin, 'is_active', True),
-                'created_at': current_admin.created_at.isoformat(),
-                'updated_at': current_admin.updated_at.isoformat()
-            }
-        }), 200
+            'created_at': current_admin.created_at.isoformat(),
+            'updated_at': current_admin.updated_at.isoformat()
+        }
+    }), 200
 
 
 @auth_bp.route('/admins', methods=['GET'])
