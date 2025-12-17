@@ -641,6 +641,7 @@ docker compose up --build
 ```
 
 **Accessing the Application:**
+
 - **Base URL**: http://localhost:5000 (or port specified in FLASK_PORT)
 - **Health Check**: http://localhost:5000/
 - **API Prefix**: http://localhost:5000/api
@@ -1473,7 +1474,7 @@ The project includes a complete Docker setup with `Dockerfile` and `docker-compo
        # ... existing config ...
        environment:
          FLASK_ENV: production
-         SECRET_KEY: ${SECRET_KEY}  # Use strong secret from .env
+         SECRET_KEY: ${SECRET_KEY} # Use strong secret from .env
        command: >
          bash -c "
            flask db upgrade || true;
@@ -1484,6 +1485,7 @@ The project includes a complete Docker setup with `Dockerfile` and `docker-compo
 4. **Using Docker Compose**
 
    The included `docker-compose.yml` already configures:
+
    - PostgreSQL database service
    - Flask web application service
    - Volume persistence for database
@@ -1793,6 +1795,7 @@ psql -d timetable_manager -c "SELECT COUNT(*) FROM department;"
 ## Docker Quick Start
 
 ### Prerequisites
+
 - Docker 20.10+
 - Docker Compose 2.0+
 
