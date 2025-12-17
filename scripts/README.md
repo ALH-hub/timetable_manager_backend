@@ -19,8 +19,22 @@ Advanced database seeding script with comprehensive conflict detection and preve
 
 #### Usage
 
+**Using Docker (Recommended):**
+
 ```bash
 # From project root
+docker compose exec web python3 scripts/seed_database.py
+
+# Or access container shell first
+docker compose exec web bash
+python3 scripts/seed_database.py
+exit
+```
+
+**Local Development:**
+
+```bash
+# From project root (with venv activated)
 python3 scripts/seed_database.py
 
 # Or make it executable
@@ -151,6 +165,18 @@ Scheduling Statistics:
 
 **Issue**: ModuleNotFoundError
 
+**Docker:**
+
+```bash
+# Ensure container is running
+docker compose ps
+
+# Run script in container
+docker compose exec web python3 scripts/seed_database.py
+```
+
+**Local:**
+
 ```bash
 # Ensure you're in project root and venv is activated
 cd /path/to/timetable_manager_backend
@@ -160,6 +186,21 @@ python3 scripts/seed_database.py
 
 **Issue**: Database connection error
 
+**Docker:**
+
+```bash
+# Check database container is running
+docker compose ps db
+
+# Check database logs
+docker compose logs db
+
+# Test database connection from web container
+docker compose exec web pg_isready -h db -U oumate -d timetableDB
+```
+
+**Local:**
+
 ```bash
 # Check .env file has correct DATABASE_URL
 # Verify PostgreSQL is running
@@ -168,12 +209,64 @@ psql -d timetable_manager -c "SELECT 1"
 
 **Issue**: Foreign key constraint violations
 
+**Docker:**
+
+```bash
+# Reset database and run migrations
+docker compose down -v
+docker compose up --build -d
+docker compose exec web python3 scripts/seed_database.py
+```
+
+**Local:**
+
 ```bash
 # The script handles order automatically, but if issues persist:
 flask db downgrade base
 flask db upgrade
 python3 scripts/seed_database.py
 ```
+
+**Issue**: Permission denied
+
+**Docker:**
+
+```bash
+# Ensure you're running from project root
+docker compose exec web python3 scripts/seed_database.py
+```
+
+**Local:**
+
+```bash
+# Make script executable
+chmod +x scripts/seed_database.py
+./scripts/seed_database.py
+```
+
+## Docker Usage
+
+All scripts can be run inside Docker containers:
+
+```bash
+# General pattern
+docker compose exec web python3 scripts/<script_name>.py
+
+# Examples
+docker compose exec web python3 scripts/seed_database.py
+
+# Access interactive shell
+docker compose exec web bash
+# Then run scripts normally
+python3 scripts/seed_database.py
+```
+
+**Benefits of using Docker:**
+
+- Consistent environment across different machines
+- No need to install Python dependencies locally
+- Database connection is automatically configured
+- Isolated from host system
 
 ## Future Scripts
 
@@ -185,3 +278,5 @@ Additional scripts that can be added to this directory:
 - `import_courses.py` - Import courses from CSV
 - `clean_old_data.py` - Archive or delete old timetables
 - `generate_reports.py` - Generate usage reports
+
+**Last Updated**: December 17, 2025

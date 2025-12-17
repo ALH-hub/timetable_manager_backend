@@ -272,20 +272,101 @@ The service layer follows a consistent pattern:
 
 ### Prerequisites
 
-- **Python**: 3.8 or higher
-- **PostgreSQL**: 12 or higher
+- **Python**: 3.8 or higher (for local development)
+- **PostgreSQL**: 12 or higher (for local development)
+- **Docker**: 20.10+ and Docker Compose 2.0+ (recommended)
 - **Git**: For cloning the repository
 - **pip**: Python package manager
 - **virtualenv**: For creating isolated Python environments
 
-### Step 1: Clone the Repository
+### Method 1: Docker Installation (Recommended)
+
+The easiest way to get started is using Docker Compose:
+
+#### Step 1: Clone the Repository
 
 ```bash
 git clone https://github.com/ALH-hub/timetable_manager_backend.git
 cd timetable_manager_backend
 ```
 
-### Step 2: Create Virtual Environment
+#### Step 2: Configure Environment Variables
+
+Copy the example environment file and configure it:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your preferred settings (or use defaults):
+
+```env
+# Database Configuration
+POSTGRES_USER=oumate
+POSTGRES_PASSWORD=oumate
+POSTGRES_DB=timetableDB
+DB_PORT=5433
+DB_HOST=db
+
+# Flask Configuration
+FLASK_APP=app.py
+FLASK_ENV=development
+FLASK_PORT=5000
+
+# Secret Key (CHANGE THIS IN PRODUCTION!)
+SECRET_KEY=your-secret-key-change-in-production
+```
+
+#### Step 3: Build and Start Containers
+
+```bash
+# Build and start all services
+docker compose up --build
+
+# Or run in detached mode
+docker compose up --build -d
+```
+
+#### Step 4: Verify Installation
+
+```bash
+# Check container status
+docker compose ps
+
+# View logs
+docker compose logs web
+
+# Test API endpoint
+curl http://localhost:5000/
+```
+
+Expected response: `{"message": "Welcome to the Timetable Manager Backend!"}`
+
+#### Step 5: Initialize Database (First Time Only)
+
+The database migrations run automatically on container start. To seed with sample data:
+
+```bash
+# Access the web container
+docker compose exec web bash
+
+# Run seeding script
+python3 scripts/seed_database.py
+
+# Exit container
+exit
+```
+
+### Method 2: Local Installation (Without Docker)
+
+#### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/ALH-hub/timetable_manager_backend.git
+cd timetable_manager_backend
+```
+
+#### Step 2: Create Virtual Environment
 
 ```bash
 # Create virtual environment
@@ -299,14 +380,44 @@ source venv/bin/activate
 venv\Scripts\activate
 ```
 
-### Step 3: Install Dependencies
+#### Step 3: Install Dependencies
 
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### Step 4: Verify Installation
+#### Step 4: Configure Environment Variables
+
+Create a `.env` file in the project root:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your database connection:
+
+```env
+DATABASE_URL=postgresql://username:password@localhost:5432/timetable_manager
+SECRET_KEY=your-secret-key-here-change-in-production
+FLASK_ENV=development
+FLASK_DEBUG=1
+```
+
+#### Step 5: Set Up Database
+
+```bash
+# Create database (if not exists)
+createdb timetable_manager
+
+# Initialize migrations
+flask db upgrade
+
+# Seed database (optional)
+python3 scripts/seed_database.py
+```
+
+#### Step 6: Verify Installation
 
 ```bash
 python3 -c "import flask; print(f'Flask version: {flask.__version__}')"
@@ -320,7 +431,38 @@ Expected output: `Flask version: 3.1.1`
 
 ### Environment Variables
 
-Create a `.env` file in the project root directory:
+The application uses environment variables for configuration. Docker Compose automatically reads from a `.env` file in the project root.
+
+#### Using Docker Compose
+
+Create a `.env` file based on `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your settings:
+
+```env
+# Database Configuration
+POSTGRES_USER=oumate
+POSTGRES_PASSWORD=oumate
+POSTGRES_DB=timetableDB
+DB_PORT=5433
+DB_HOST=db
+
+# Flask Configuration
+FLASK_APP=app.py
+FLASK_ENV=development
+FLASK_PORT=5000
+
+# Secret Key (CHANGE THIS IN PRODUCTION!)
+SECRET_KEY=your-secret-key-change-in-production
+```
+
+#### Local Development (Without Docker)
+
+Create a `.env` file in the project root:
 
 ```bash
 # Database Configuration
@@ -331,7 +473,7 @@ SECRET_KEY=your-secret-key-here-change-in-production
 FLASK_ENV=development
 FLASK_DEBUG=1
 
-# JWT Configuration
+# JWT Configuration (optional, uses SECRET_KEY if not set)
 JWT_SECRET_KEY=your-jwt-secret-key-here-change-in-production
 JWT_EXPIRATION_HOURS=24
 
@@ -476,12 +618,41 @@ For detailed information about seeding, see [scripts/README.md](scripts/README.m
 
 ## Running the Application
 
-### Method 1: Using Flask CLI (Recommended)
+### Method 1: Using Docker Compose (Recommended)
+
+```bash
+# Start all services (database + web)
+docker compose up
+
+# Start in detached mode (background)
+docker compose up -d
+
+# View logs
+docker compose logs -f web
+
+# Stop services
+docker compose down
+
+# Stop and remove volumes (WARNING: deletes database)
+docker compose down -v
+
+# Rebuild after code changes
+docker compose up --build
+```
+
+**Accessing the Application:**
+- **Base URL**: http://localhost:5000 (or port specified in FLASK_PORT)
+- **Health Check**: http://localhost:5000/
+- **API Prefix**: http://localhost:5000/api
+- **Database**: localhost:5433 (or port specified in DB_PORT)
+
+### Method 2: Using Flask CLI (Local Development)
 
 ```bash
 # Activate virtual environment
 source venv/bin/activate
 
+# Ensure PostgreSQL is running and .env is configured
 # Run development server
 flask run
 
@@ -492,16 +663,10 @@ flask run --host=0.0.0.0 --port=8000
 flask run --debug
 ```
 
-### Method 2: Using Python Directly
+### Method 3: Using Python Directly
 
 ```bash
 python3 app.py
-```
-
-### Method 3: Using Makefile (if created)
-
-```bash
-make run
 ```
 
 ### Accessing the Application
@@ -516,6 +681,30 @@ make run
 - **Interactive Debugger**: In-browser debugger for exceptions (debug mode)
 - **Request Logging**: Logs all incoming requests
 - **Error Pages**: Detailed error pages in development
+- **Database Migrations**: Automatically run on container start (Docker)
+
+### Docker Commands Reference
+
+```bash
+# View running containers
+docker compose ps
+
+# View logs
+docker compose logs web
+docker compose logs db
+
+# Execute commands in container
+docker compose exec web bash
+docker compose exec web flask shell
+docker compose exec db psql -U oumate -d timetableDB
+
+# Restart services
+docker compose restart web
+
+# Rebuild specific service
+docker compose build web
+docker compose up -d web
+```
 
 ### Production Considerations
 
@@ -529,6 +718,18 @@ gunicorn -w 4 -b 0.0.0.0:8000 app:app
 # Using uWSGI
 pip install uwsgi
 uwsgi --http :8000 --wsgi-file app.py --callable app --processes 4
+```
+
+**Production Docker Setup:**
+
+Update `docker-compose.yml` command to use Gunicorn:
+
+```yaml
+command: >
+  bash -c "
+    flask db upgrade || true;
+    exec gunicorn -w 4 -b 0.0.0.0:5000 app:app;
+  "
 ```
 
 ---
@@ -1238,55 +1439,56 @@ SELECT * FROM department;
 
 ### Deployment with Docker
 
-1. **Create Dockerfile**
+The project includes a complete Docker setup with `Dockerfile` and `docker-compose.yml`.
 
-   ```dockerfile
-   FROM python:3.11-slim
+1. **Configure Environment Variables**
 
-   WORKDIR /app
+   Copy `.env.example` to `.env` and update with production values:
 
-   COPY requirements.txt .
-   RUN pip install --no-cache-dir -r requirements.txt
-
-   COPY . .
-
-   EXPOSE 8000
-
-   CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8000", "app:app"]
+   ```bash
+   cp .env.example .env
+   # Edit .env with production credentials
    ```
 
-2. **Create docker-compose.yml**
+2. **Build and Deploy**
+
+   ```bash
+   # Build and start services
+   docker compose up --build -d
+
+   # View logs
+   docker compose logs -f
+
+   # Check status
+   docker compose ps
+   ```
+
+3. **Production Configuration**
+
+   For production, update `docker-compose.yml`:
 
    ```yaml
-   version: '3.8'
-
    services:
      web:
-       build: .
-       ports:
-         - '8000:8000'
+       # ... existing config ...
        environment:
-         - DATABASE_URL=postgresql://user:pass@db:5432/timetable
-       depends_on:
-         - db
-
-     db:
-       image: postgres:15
-       environment:
-         - POSTGRES_DB=timetable_manager
-         - POSTGRES_USER=user
-         - POSTGRES_PASSWORD=pass
-       volumes:
-         - postgres_data:/var/lib/postgresql/data
-
-   volumes:
-     postgres_data:
+         FLASK_ENV: production
+         SECRET_KEY: ${SECRET_KEY}  # Use strong secret from .env
+       command: >
+         bash -c "
+           flask db upgrade || true;
+           exec gunicorn -w 4 -b 0.0.0.0:5000 app:app;
+         "
    ```
 
-3. **Deploy**
-   ```bash
-   docker-compose up -d
-   ```
+4. **Using Docker Compose**
+
+   The included `docker-compose.yml` already configures:
+   - PostgreSQL database service
+   - Flask web application service
+   - Volume persistence for database
+   - Health checks and dependencies
+   - Automatic migrations on startup
 
 ### Environment-Specific Configuration
 
@@ -1353,6 +1555,10 @@ psql -U postgres -c "CREATE DATABASE timetable_manager;"
 ```bash
 # Test connection
 psql -d "postgresql://username:password@localhost:5432/timetable_manager"
+
+# For Docker: Reset database volume if credentials changed
+docker compose down -v
+docker compose up --build
 ```
 
 #### 4. "ImportError: cannot import name 'create_app'"
@@ -1579,5 +1785,56 @@ psql -d timetable_manager -c "SELECT COUNT(*) FROM department;"
 
 ---
 
-**Last Updated**: November 12, 2025
+**Last Updated**: December 17, 2025
 **Version**: 1.0.0
+
+---
+
+## Docker Quick Start
+
+### Prerequisites
+- Docker 20.10+
+- Docker Compose 2.0+
+
+### Quick Start Commands
+
+```bash
+# 1. Clone repository
+git clone <repository-url>
+cd timetable_manager_backend
+
+# 2. Copy environment file
+cp .env.example .env
+
+# 3. (Optional) Edit .env with your preferences
+
+# 4. Start services
+docker compose up --build
+
+# 5. Access application
+# API: http://localhost:5000
+# Database: localhost:5433
+```
+
+### Common Docker Operations
+
+```bash
+# View logs
+docker compose logs -f web
+
+# Access database
+docker compose exec db psql -U oumate -d timetableDB
+
+# Run migrations manually
+docker compose exec web flask db upgrade
+
+# Seed database
+docker compose exec web python3 scripts/seed_database.py
+
+# Stop services
+docker compose down
+
+# Reset everything (WARNING: deletes data)
+docker compose down -v
+docker compose up --build
+```
