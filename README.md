@@ -1137,6 +1137,10 @@ class TimeTableSlot(db.Model):
 
 - `day_name`: Returns human-readable day name
 
+### Diagram
+
+<img width="1737" height="1244" alt="Unischel (1)" src="https://github.com/user-attachments/assets/c636961a-2e8c-43af-a157-78e42ff96e3f" />
+
 ---
 
 ## Testing
